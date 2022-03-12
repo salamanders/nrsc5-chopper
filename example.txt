@@ -1,0 +1,259 @@
+benjamin@YELLOW:~/Desktop/fm/nrsc5$ nrsc5 -l 1 -o output_985.wav --dump-aas-files ./aas/ 98.5 0
+Found Rafael Micro R820T tuner
+Exact sample rate is: 1488375.071248 Hz
+[R82XX] PLL not locked!
+Disabled direct sampling mode
+[R82XX] PLL not locked!
+Allocating 8 zero-copy buffers
+08:23:33 Synchronized
+08:23:33 Country: US, FCC facility ID: 65415
+08:23:33 Station name: KUFX
+08:23:33 Country: US, FCC facility ID: 65415
+08:23:33 Station name: KUFX
+08:23:33 Audio program 0: public, type: None, sound experience 0
+08:23:33 Audio program 1: public, type: None, sound experience 0
+08:23:34 Country: US, FCC facility ID: 65415
+08:23:34 Station name: KUFX
+08:23:34 Slogan: HD1
+08:23:34 Audio program 0: public, type: None, sound experience 0
+08:23:34 Audio program 1: public, type: None, sound experience 0
+08:23:34 Country: US, FCC facility ID: 65415
+08:23:34 Station name: KUFX
+08:23:34 Slogan: HD1
+08:23:34 Audio program 0: public, type: None, sound experience 0
+08:23:34 Audio program 1: public, type: None, sound experience 0
+08:23:34 Audio program 2: public, type: None, sound experience 0
+08:23:34 Data service: public, type: Traffic, MIME type c3e
+08:23:34 Country: US, FCC facility ID: 65415
+08:23:34 Station name: KUFX
+08:23:34 Slogan: HD1
+08:23:34 Station location: 0.000000, 0.000000, 0m
+08:23:34 Audio program 0: public, type: None, sound experience 0
+08:23:34 Audio program 1: public, type: None, sound experience 0
+08:23:34 Audio program 2: public, type: None, sound experience 0
+08:23:34 Data service: public, type: Traffic, MIME type c3e
+08:23:34 Country: US, FCC facility ID: 65415
+08:23:34 Station name: KUFX
+08:23:34 Slogan: HD1
+08:23:34 Station location: 0.000000, 0.000000, 0m
+08:23:34 Audio program 0: public, type: None, sound experience 0
+08:23:34 Audio program 1: public, type: None, sound experience 0
+08:23:34 Audio program 2: public, type: None, sound experience 0
+08:23:34 Data service: public, type: Traffic, MIME type c3e
+08:23:34 Data service: public, type: Service Maintenance, MIME type c3e
+08:23:34 Data service: public, type: Navigation, MIME type dfc
+08:23:34 Country: US, FCC facility ID: 65415
+08:23:34 Station name: KUFX
+08:23:34 Slogan: HD1
+08:23:34 Station location: 0.000000, 0.000000, 0m
+08:23:34 Audio program 0: public, type: None, sound experience 0
+08:23:34 Audio program 1: public, type: None, sound experience 0
+08:23:34 Audio program 2: public, type: None, sound experience 0
+08:23:34 Data service: public, type: Traffic, MIME type c3e
+08:23:34 Data service: public, type: Service Maintenance, MIME type c3e
+08:23:34 Data service: public, type: Navigation, MIME type dfc
+08:23:35 Country: US, FCC facility ID: 65415
+08:23:35 Station name: KUFX
+08:23:35 Slogan: HD1
+08:23:35 Message: kfox.com
+08:23:35 Station location: 0.000000, 0.000000, 0m
+08:23:35 Audio program 0: public, type: None, sound experience 0
+08:23:35 Audio program 1: public, type: None, sound experience 0
+08:23:35 Audio program 2: public, type: None, sound experience 0
+08:23:35 Data service: public, type: Traffic, MIME type c3e
+08:23:35 Data service: public, type: Service Maintenance, MIME type c3e
+08:23:35 Data service: public, type: Navigation, MIME type dfc
+08:23:35 MER: 13.1 dB (lower), 13.3 dB (upper)
+08:23:35 BER: 0.000101, avg: 0.000101, min: 0.000101, max: 0.000101
+08:23:36 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:36 BER: 0.000115, avg: 0.000108, min: 0.000101, max: 0.000115
+08:23:36 Title: (I Can't Get No) Satisfaction
+08:23:36 Artist: Rolling Stones
+08:23:36 XHDR: 1 BE4B7536 -1
+08:23:36 Title: (I Can't Get No) Satisfaction
+08:23:36 Artist: Rolling Stones
+08:23:36 XHDR: 1 BE4B7536 -1
+08:23:36 Audio bit rate: 36.3 kbps
+08:23:38 MER: 13.1 dB (lower), 13.3 dB (upper)
+08:23:38 BER: 0.000153, avg: 0.000123, min: 0.000101, max: 0.000153
+08:23:38 Title: (I Can't Get No) Satisfaction
+08:23:38 Artist: Rolling Stones
+08:23:38 XHDR: 1 BE4B7536 -1
+08:23:38 Audio bit rate: 35.4 kbps
+08:23:39 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:39 BER: 0.000131, avg: 0.000125, min: 0.000101, max: 0.000153
+08:23:39 SIG Service: type=audio number=1 name=HD1
+08:23:39   Audio component: id=0 port=0000 type=0 mime=4DC66C5A
+08:23:39   Data component: id=1 port=0407 service_data_type=265 type=3 mime=BE4B7536
+08:23:39   Data component: id=2 port=0411 service_data_type=265 type=3 mime=D9C72536
+08:23:39 SIG Service: type=audio number=2 name=HD2
+08:23:39   Audio component: id=0 port=0001 type=0 mime=4DC66C5A
+08:23:39   Data component: id=1 port=0408 service_data_type=265 type=3 mime=BE4B7536
+08:23:39   Data component: id=2 port=0412 service_data_type=265 type=3 mime=D9C72536
+08:23:39 SIG Service: type=audio number=3 name=HD3
+08:23:39   Audio component: id=0 port=0002 type=0 mime=4DC66C5A
+08:23:39   Data component: id=1 port=0409 service_data_type=265 type=3 mime=BE4B7536
+08:23:39   Data component: id=2 port=0413 service_data_type=265 type=3 mime=D9C72536
+08:23:39 SIG Service: type=data number=35 name=NavteqPacketData1
+08:23:39   Data component: id=0 port=0401 service_data_type=65 type=1 mime=2D42AC3E
+08:23:39 SIG Service: type=data number=37 name=NavteqAdmin
+08:23:39   Data component: id=0 port=0403 service_data_type=263 type=1 mime=2D42AC3E
+08:23:39 SIG Service: type=data number=38 name=HERE TPEG
+08:23:39   Data component: id=0 port=0402 service_data_type=259 type=0 mime=82F03DFC
+08:23:39 SIG Service: type=data number=39 name=HERE Images
+08:23:39   Data component: id=0 port=0404 service_data_type=259 type=0 mime=B7F03DFC
+08:23:39 Title: (I Can't Get No) Satisfaction
+08:23:39 Artist: Rolling Stones
+08:23:39 XHDR: 1 BE4B7536 -1
+08:23:39 Audio bit rate: 36.1 kbps
+08:23:41 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:41 BER: 0.000137, avg: 0.000128, min: 0.000101, max: 0.000153
+08:23:41 Title: (I Can't Get No) Satisfaction
+08:23:41 Artist: Rolling Stones
+08:23:41 XHDR: 1 BE4B7536 -1
+08:23:41 Audio bit rate: 35.5 kbps
+08:23:42 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:42 BER: 0.000074, avg: 0.000119, min: 0.000074, max: 0.000153
+08:23:42 Title: (I Can't Get No) Satisfaction
+08:23:42 Artist: Rolling Stones
+08:23:42 XHDR: 1 BE4B7536 -1
+08:23:42 Title: (I Can't Get No) Satisfaction
+08:23:42 Artist: Rolling Stones
+08:23:42 XHDR: 1 BE4B7536 -1
+08:23:42 Audio bit rate: 36.5 kbps
+08:23:44 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:44 BER: 0.000101, avg: 0.000116, min: 0.000074, max: 0.000153
+08:23:44 Title: (I Can't Get No) Satisfaction
+08:23:44 Artist: Rolling Stones
+08:23:44 XHDR: 1 BE4B7536 -1
+08:23:44 Audio bit rate: 35.7 kbps
+08:23:45 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:45 BER: 0.000101, avg: 0.000114, min: 0.000074, max: 0.000153
+08:23:45 Title: (I Can't Get No) Satisfaction
+08:23:45 Artist: Rolling Stones
+08:23:45 XHDR: 1 BE4B7536 -1
+08:23:45 Audio bit rate: 35.7 kbps
+08:23:47 MER: 13.2 dB (lower), 13.4 dB (upper)
+08:23:47 BER: 0.000074, avg: 0.000110, min: 0.000074, max: 0.000153
+08:23:47 Title: (I Can't Get No) Satisfaction
+08:23:47 Artist: Rolling Stones
+08:23:47 XHDR: 1 BE4B7536 -1
+08:23:47 Audio bit rate: 36.1 kbps
+08:23:48 MER: 13.3 dB (lower), 13.4 dB (upper)
+08:23:48 BER: 0.000014, avg: 0.000100, min: 0.000014, max: 0.000153
+08:23:48 Title: (I Can't Get No) Satisfaction
+08:23:48 Artist: Rolling Stones
+08:23:48 XHDR: 1 BE4B7536 -1
+08:23:48 Title: (I Can't Get No) Satisfaction
+08:23:48 Artist: Rolling Stones
+08:23:48 XHDR: 1 BE4B7536 -1
+08:23:48 Audio bit rate: 35.4 kbps
+08:23:50 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:50 BER: 0.000096, avg: 0.000100, min: 0.000014, max: 0.000153
+08:23:50 Title: (I Can't Get No) Satisfaction
+08:23:50 Artist: Rolling Stones
+08:23:50 XHDR: 1 BE4B7536 -1
+08:23:50 Audio bit rate: 36.1 kbps
+08:23:51 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:51 BER: 0.000120, avg: 0.000101, min: 0.000014, max: 0.000153
+08:23:51 Title: (I Can't Get No) Satisfaction
+08:23:51 Artist: Rolling Stones
+08:23:51 XHDR: 1 BE4B7536 -1
+08:23:51 Audio bit rate: 35.5 kbps
+08:23:53 MER: 13.1 dB (lower), 13.3 dB (upper)
+08:23:53 BER: 0.000107, avg: 0.000102, min: 0.000014, max: 0.000153
+08:23:53 Title: (I Can't Get No) Satisfaction
+08:23:53 Artist: Rolling Stones
+08:23:53 XHDR: 1 BE4B7536 -1
+08:23:53 Title: (I Can't Get No) Satisfaction
+08:23:53 Artist: Rolling Stones
+08:23:53 XHDR: 1 BE4B7536 -1
+08:23:53 Audio bit rate: 36.2 kbps
+08:23:54 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:23:54 BER: 0.000115, avg: 0.000103, min: 0.000014, max: 0.000153
+08:23:54 Title: (I Can't Get No) Satisfaction
+08:23:54 Artist: Rolling Stones
+08:23:54 XHDR: 1 BE4B7536 -1
+08:23:54 Audio bit rate: 35.8 kbps
+08:23:56 MER: 13.1 dB (lower), 13.2 dB (upper)
+08:23:56 BER: 0.000161, avg: 0.000107, min: 0.000014, max: 0.000161
+08:23:56 Title: (I Can't Get No) Satisfaction
+08:23:56 Artist: Rolling Stones
+08:23:56 XHDR: 1 BE4B7536 -1
+08:23:56 Audio bit rate: 36.2 kbps
+08:23:57 MER: 13.1 dB (lower), 13.2 dB (upper)
+08:23:57 BER: 0.000099, avg: 0.000106, min: 0.000014, max: 0.000161
+08:23:57 Title: (I Can't Get No) Satisfaction
+08:23:57 Artist: Rolling Stones
+08:23:57 XHDR: 1 BE4B7536 -1
+08:23:57 Audio bit rate: 35.5 kbps
+08:23:59 MER: 13.1 dB (lower), 13.2 dB (upper)
+08:23:59 BER: 0.000129, avg: 0.000108, min: 0.000014, max: 0.000161
+08:23:59 Title: (I Can't Get No) Satisfaction
+08:23:59 Artist: Rolling Stones
+08:23:59 XHDR: 1 BE4B7536 -1
+08:23:59 Title: (I Can't Get No) Satisfaction
+08:23:59 Artist: Rolling Stones
+08:23:59 XHDR: 1 BE4B7536 -1
+08:23:59 Audio bit rate: 35.8 kbps
+08:24:00 MER: 13.1 dB (lower), 13.3 dB (upper)
+08:24:00 BER: 0.000107, avg: 0.000107, min: 0.000014, max: 0.000161
+08:24:00 Title: (I Can't Get No) Satisfaction
+08:24:00 Artist: Rolling Stones
+08:24:00 XHDR: 1 BE4B7536 -1
+08:24:00 Audio bit rate: 36.0 kbps
+08:24:01 MER: 13.2 dB (lower), 13.4 dB (upper)
+08:24:01 BER: 0.000099, avg: 0.000107, min: 0.000014, max: 0.000161
+08:24:01 Title: (I Can't Get No) Satisfaction
+08:24:01 Artist: Rolling Stones
+08:24:01 XHDR: 1 BE4B7536 -1
+08:24:01 Audio bit rate: 35.2 kbps
+08:24:01 Audio bit rate: 35.7 kbps
+08:24:03 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:24:03 BER: 0.000112, avg: 0.000107, min: 0.000014, max: 0.000161
+08:24:03 LOT file: port=0412 lot=45140 name=SLKUFX$$020006.jpg size=6453 mime=1E653E9C
+08:24:03 Title: (I Can't Get No) Satisfaction
+08:24:03 Artist: Rolling Stones
+08:24:03 XHDR: 1 BE4B7536 -1
+08:24:04 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:24:04 BER: 0.000109, avg: 0.000107, min: 0.000014, max: 0.000161
+08:24:04 Title: (I Can't Get No) Satisfaction
+08:24:04 Artist: Rolling Stones
+08:24:04 XHDR: 1 BE4B7536 -1
+08:24:04 Title: (I Can't Get No) Satisfaction
+08:24:04 Artist: Rolling Stones
+08:24:04 XHDR: 1 BE4B7536 -1
+08:24:04 Audio bit rate: 36.3 kbps
+08:24:06 MER: 13.2 dB (lower), 13.3 dB (upper)
+08:24:06 BER: 0.000129, avg: 0.000108, min: 0.000014, max: 0.000161
+08:24:06 Title: (I Can't Get No) Satisfaction
+08:24:06 Artist: Rolling Stones
+08:24:06 XHDR: 1 BE4B7536 -1
+08:24:06 Audio bit rate: 35.8 kbps
+08:24:07 MER: 13.1 dB (lower), 13.3 dB (upper)
+08:24:07 BER: 0.000107, avg: 0.000108, min: 0.000014, max: 0.000161
+08:24:07 Title: (I Can't Get No) Satisfaction
+08:24:07 Artist: Rolling Stones
+08:24:07 XHDR: 1 BE4B7536 -1
+08:24:07 Audio bit rate: 35.6 kbps
+08:24:09 MER: 13.2 dB (lower), 13.4 dB (upper)
+08:24:09 BER: 0.000079, avg: 0.000107, min: 0.000014, max: 0.000161
+08:24:09 Title: (I Can't Get No) Satisfaction
+08:24:09 Artist: Rolling Stones
+08:24:09 XHDR: 1 BE4B7536 -1
+08:24:09 Audio bit rate: 36.0 kbps
+08:24:10 MER: 13.1 dB (lower), 13.2 dB (upper)
+08:24:10 BER: 0.000093, avg: 0.000107, min: 0.000014, max: 0.000161
+08:24:10 Title: (I Can't Get No) Satisfaction
+08:24:10 Artist: Rolling Stones
+08:24:10 XHDR: 1 BE4B7536 -1
+08:24:10 Title: (I Can't Get No) Satisfaction
+08:24:10 Artist: Rolling Stones
+08:24:10 XHDR: 1 BE4B7536 -1
+08:24:10 Audio bit rate: 35.8 kbps
+08:24:12 MER: 13.1 dB (lower), 13.2 dB (upper)
+08:24:12 BER: 0.000096, avg: 0.000106, min: 0.000014, max: 0.000161
+08:24:12 Title: (I Can't Get No) Satisfaction
+08:24:12 Artist: Rolling Stones
+08:24:12 XHDR: 1 BE4B7536 -1
+08:24:12 Audio bit rate: 35.9 kbps
