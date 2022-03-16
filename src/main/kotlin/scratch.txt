@@ -1,0 +1,117 @@
+data class SongEntry(
+    val title: String,
+    val artist: String,
+    val start: Instant
+) {
+    lateinit var end: Instant
+
+    fun isValid() = title.isNotBlank() && artist.isNotBlank() && ::end.isInitialized && Duration.between(
+        start,
+        end
+    ) > DURATION_MIN_SONG
+
+    companion object {
+        private val DURATION_MIN_SONG = Duration.ofMinutes(3)
+    }
+}
+
+fun Flow<String>.ignoreNoise(): Flow<Int> = transform { value ->
+    if (value % 2 == 0) { // Emit only even values, but twice
+        emit(value)
+        emit(value)
+    } // Do nothing if odd
+}
+
+class State(private val tempWavFile: File) {
+    private val recordingStartTime: Instant = Instant.now()
+    private val songHistory: MutableList<SongEntry> = mutableListOf()
+
+    // Arbitrary time in the past
+    private var titleUpdated: Instant = Instant.now().minus(Duration.ofMinutes(5))
+    private var artistUpdated: Instant = Instant.now().minus(Duration.ofMinutes(5))
+    private var bitRate: Double = 0.0
+
+    private var title: String = ""
+        set(value) {
+            if (field != value && value.trim().isNotBlank()) {
+                println("New Title: '$value'")
+                titleUpdated = Instant.now()
+            }
+            field = value
+            if (Duration.between(artistUpdated, titleUpdated) < DURATION_BETWEEN_UPDATES) {
+                newSongStarted()
+            } else {
+                println("  but the artist hasn't been updated recently, so continuing normally.")
+            }
+        }
+
+    /** TBD if the station isn't setting artist */
+    private var artist: String = ""
+        set(value) {
+            if (field != value && value.trim().isNotBlank()) {
+                println("New Artist: '$value'")
+                artistUpdated = Instant.now()
+                if (Duration.between(titleUpdated, Instant.now()) < DURATION_BETWEEN_UPDATES) {
+                    newSongStarted()
+                } else {
+                    println("  but the title hasn't been updated, so continuing normally.")
+                }
+            }
+            field = value
+        }
+    private var fileLot: String = ""
+
+    private fun newSongStarted() {
+        if (songHistory.isNotEmpty()) {
+            println("Finishing up old song: ${songHistory.last().artist}/${songHistory.last().title}")
+            songHistory.last().end = Collections.min(listOf(artistUpdated, titleUpdated, Instant.now()))
+        }
+        println("New Song started: $artist: $title")
+        songHistory.add(
+            SongEntry(
+                title = title,
+                artist = artist,
+                start = Collections.min(listOf(artistUpdated, titleUpdated, Instant.now()))
+            )
+        )
+    }
+
+
+
+
+     val (time, contents) = line.split(' ', limit = 2)
+     val (hour, min, sec) = time.split(':')
+     val dateTime = LocalDate.now().atTime(hour.toInt(), min.toInt(), sec.toInt())
+
+
+
+    fun splitFiles() {
+        println("Final stage: Splitting file")
+
+        val audioInputStream: AudioInputStream = AudioSystem.getAudioInputStream(tempWavFile)
+        val format = audioInputStream.format
+        val frames = audioInputStream.frameLength
+        val durationInSeconds = (frames + 0.0) / format.frameRate
+        println("TODO: Extract from ${tempWavFile.name} $format $frames $durationInSeconds")
+
+        songHistory.filter { it.isValid() }.forEach { songEntry ->
+            println(songEntry)
+            val safeArtist = StringUtils.stripAccents(songEntry.artist).replace(Regex("[^A-Za-z0-9-]+"), "_")
+            val outputFolder = File("output/$safeArtist").also {
+                it.mkdirs()
+            }
+        }
+        // for each song in the list
+        // split the WAV file
+        // rename to a folder (output/artist/song.wav)
+        // move the image into the folder
+
+
+        TODO("Not yet implemented")
+    }
+
+    companion object {
+        private val DURATION_BETWEEN_UPDATES = Duration.ofMinutes(5)
+
+    }
+}
