@@ -1,4 +1,5 @@
 import info.benjaminhill.utils.LogInfrequently
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
@@ -9,10 +10,9 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.*
 
 
-fun commandToFlow(command: Array<String>, maxTime :Duration = Duration.ofMinutes(7)): Flow<String> {
+fun commandToFlow(command: Array<String>, maxTime: Duration = Duration.ofMinutes(7)): Flow<String> {
     val timeToStop = CountDownLatch(1)
     val startInstant = Instant.now()
     val logInfrequently = LogInfrequently(delay = 10.seconds, logLine = { perSec: Double ->
