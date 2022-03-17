@@ -18,7 +18,7 @@ private val logger = KotlinLogging.logger {}
 fun commandToFlow(command: Array<String>, maxTime: Duration = Duration.ofMinutes(7)): Flow<String> {
     val timeToStop = CountDownLatch(1)
     val startInstant = Instant.now()
-    val logInfrequently = LogInfrequently(delay = 30.seconds, logLine = { perSec: Double ->
+    val logInfrequently = LogInfrequently(delay = 90.seconds, logLine = { perSec: Double ->
         Duration.between(startInstant, Instant.now()).let {
             "Runtime: ${it.toMinutes()}m, Running at ${perSec.toInt()}/sec"
         }

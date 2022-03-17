@@ -1,46 +1,49 @@
-import de.sciss.jump3r.lowlevel.LameEncoder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.Duration
-import javax.sound.sampled.AudioSystem
 
 private val logger = KotlinLogging.logger {}
 
-fun encodeAudioFileToMp3(source: File, destination: File, offsetFromStart: Duration? = null, length: Duration? = null) {
+suspend fun encodeAudioFileToMp3(source: File, destination: File, offsetFromStart: Duration, length: Duration) {
     require(source.canRead()) { "Unable to read ${source.canonicalPath}" }
-    val audioInputStream = AudioSystem.getAudioInputStream(source.inputStream().buffered())
 
-    val audioFormat = audioInputStream.format
-    val bytesPerSecond = audioFormat.frameRate * audioFormat.frameSize
-
-    if (offsetFromStart != null) {
-        val seconds = offsetFromStart.toMillis() / 1000.0
-        val bytes = bytesPerSecond * seconds
-        audioInputStream.skip(bytes.toLong())
-        logger.info { "- Skipped ${seconds}s, $bytes bytes" }
+    val command = arrayOf(
+        "ffmpeg",
+        "-ss", offsetFromStart.toHHMMSS(), "-i", source.canonicalPath,
+        "-c:a", "libfdk_aac",
+        "-b:a", "64k",
+        "-t", length.toSeconds().toString(), destination.canonicalPath
+    )
+    withContext(Dispatchers.IO) {
+        ProcessBuilder()
+            .redirectErrorStream(true)
+            .command(*command)
+            .directory(File("."))
+            .start()!!
+            .inputStream
+            .bufferedReader()
+            .lineSequence()
+            .asFlow()
+            .flowOn(Dispatchers.IO)
+            .onStart {
+                logger.info { "commandToFlow.onStart encoding to `${destination.canonicalPath}`" }
+            }
+            .onCompletion {
+                logger.info { "commandToFlow.onCompletion finished `${destination.canonicalPath}`" }
+            }.catch { error ->
+                logger.error { error }
+            }.collect()
     }
 
-    val maxBytes = if (length != null) {
-        val seconds = length.toMillis() / 1000.0
-        (bytesPerSecond * seconds).also {
-            logger.info { "- Only reading duration ${seconds}s, $bytesPerSecond bytes" }
-        }
-    } else {
-        source.length()
-    }.toInt()
+}
 
-    val encoder = LameEncoder(audioFormat)
-    val mp3 = ByteArrayOutputStream()
-    val inputBuffer = ByteArray(encoder.pcmBufferSize)
-    val outputBuffer = ByteArray(encoder.pcmBufferSize)
-
-    var bytesRead: Int = 0
-    var bytesWritten: Int
-    while (bytesRead <= maxBytes && 0 < audioInputStream.read(inputBuffer).also { bytesRead = it }) {
-        bytesWritten = encoder.encodeBuffer(inputBuffer, 0, bytesRead, outputBuffer)
-        mp3.write(outputBuffer, 0, bytesWritten)
-    }
-    destination.writeBytes(mp3.toByteArray())
+fun Duration.toHHMMSS(): String {
+    val hh = this.toHours()
+    val mm = this.toMinutesPart()
+    val ss = this.toSecondsPart()
+    return String.format("%02d:%02d:%02d", hh, mm, ss)
 }
 

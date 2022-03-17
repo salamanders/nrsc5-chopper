@@ -36,14 +36,13 @@ fun main() = runBlocking(Dispatchers.IO) {
         channel.toString()
     )
     logger.info {"Command: `${command.joinToString(" ")}`"  }
-    val firstInstant: Instant = Instant.now()
+    lateinit var firstInstant: Instant
 
     /** Current (cumulative) state of play */
     data class Song(
         val title: String,
         val artist: String,
         val start: Instant = Instant.now(),
-        val startOffset: Duration = Duration.between(firstInstant, Instant.now()),
         var length: Duration = Duration.ofSeconds(0),
         val files: Multiset<String> = HashMultiset.create()
     ) : Serializable
@@ -51,6 +50,9 @@ fun main() = runBlocking(Dispatchers.IO) {
     val messages = commandToFlow(command = command, maxTime = maxTime)
         .dropExtras()
         .toHDMessages()
+        .onStart {
+            firstInstant = Instant.now()
+        }
         .distinctUntilChanged()
         .onEach {
             logger.trace { "Message: $it" }
@@ -112,11 +114,11 @@ fun main() = runBlocking(Dispatchers.IO) {
                 val outputFolder = File("output", safeArtist).also {
                     it.mkdirs()
                 }
-                val destination = File(outputFolder, "$safeTitle.mp3")
+                val destination = File(outputFolder, "$safeTitle.m4a")
                 encodeAudioFileToMp3(
                     source = File(outputWavName),
                     destination = destination,
-                    offsetFromStart = song.startOffset,
+                    offsetFromStart = Duration.between(firstInstant, song.start),
                     length = song.length,
                 )
                 logger.info {"-- Finished async encoding ${destination.absolutePath}" }
