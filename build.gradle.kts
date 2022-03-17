@@ -24,6 +24,7 @@ dependencies {
     implementation("org.apache.commons:commons-lang3:3.12.0")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
     implementation("de.sciss:jump3r:1.0.5")
+    implementation("com.google.guava:guava:31.0.1-jre")
     testImplementation(kotlin("test"))
 }
 

@@ -1,9 +1,11 @@
 import de.sciss.jump3r.lowlevel.LameEncoder
+import mu.KotlinLogging
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.Duration
 import javax.sound.sampled.AudioSystem
 
+private val logger = KotlinLogging.logger {}
 
 fun encodeAudioFileToMp3(source: File, destination: File, offsetFromStart: Duration? = null, length: Duration? = null) {
     require(source.canRead()) { "Unable to read ${source.canonicalPath}" }
@@ -16,13 +18,13 @@ fun encodeAudioFileToMp3(source: File, destination: File, offsetFromStart: Durat
         val seconds = offsetFromStart.toMillis() / 1000.0
         val bytes = bytesPerSecond * seconds
         audioInputStream.skip(bytes.toLong())
-        println("- Skipped ${seconds}s, $bytes bytes")
+        logger.info { "- Skipped ${seconds}s, $bytes bytes" }
     }
 
     val maxBytes = if (length != null) {
         val seconds = length.toMillis() / 1000.0
         (bytesPerSecond * seconds).also {
-            println("- Only reading duration ${seconds}s, $bytesPerSecond bytes")
+            logger.info { "- Only reading duration ${seconds}s, $bytesPerSecond bytes" }
         }
     } else {
         source.length()

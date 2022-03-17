@@ -1,20 +1,21 @@
 import info.benjaminhill.utils.LogInfrequently
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.scan
+import kotlinx.coroutines.flow.transform
 import mu.KLoggable
 import java.io.Serializable
 import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
 /** Every update that we might use is captured in timestamped copies of the state */
-internal data class State(
-    val title: String? = null,
-    val artist: String? = null,
-    val file: String? = null,
-) : Serializable {
+internal data class HDMessage(
+    val type: Type,
+    val value: String,
     val ts: Instant = Instant.now()
+) : Serializable {
+    enum class Type {
+        TITLE, ARTIST, FILE
+    }
 
     companion object : Any(), KLoggable {
         override val logger = logger()
@@ -57,14 +58,14 @@ internal data class State(
             IGNORE_LINES.none { line.contains(it) } && !line.endsWith(" Synchronized")
         }
 
-        internal fun Flow<String>.toState(): Flow<State> = scan(State()) { acc, line ->
+        internal fun Flow<String>.toHDMessages(): Flow<HDMessage> = transform { line ->
             when {
-                titleRe.containsMatchIn(line) -> acc.copy(title = titleRe.find(line)!!.groupValues[1])
-                artistRe.containsMatchIn(line) -> acc.copy(artist = artistRe.find(line)!!.groupValues[1])
-                fileRe.containsMatchIn(line) -> acc.copy(file = fileRe.find(line)!!.groupValues[1])
-                else -> acc.also { println("Unexpected line, add to ignore: `$line`") }
+                titleRe.containsMatchIn(line) -> emit(HDMessage(Type.TITLE, titleRe.find(line)!!.groupValues[1]))
+                artistRe.containsMatchIn(line) -> emit(HDMessage(Type.ARTIST, artistRe.find(line)!!.groupValues[1]))
+                fileRe.containsMatchIn(line) -> emit(HDMessage(Type.FILE, fileRe.find(line)!!.groupValues[1]))
+                else -> logger.warn { "Unexpected line, add to ignore: `$line`" }
             }
-        }.distinctUntilChanged()
+        }
     }
 }
 

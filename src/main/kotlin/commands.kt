@@ -5,17 +5,20 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import mu.KotlinLogging
 import java.io.File
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import kotlin.time.Duration.Companion.seconds
 
+private val logger = KotlinLogging.logger {}
 
+/** This should be part of utils */
 fun commandToFlow(command: Array<String>, maxTime: Duration = Duration.ofMinutes(7)): Flow<String> {
     val timeToStop = CountDownLatch(1)
     val startInstant = Instant.now()
-    val logInfrequently = LogInfrequently(delay = 10.seconds, logLine = { perSec: Double ->
+    val logInfrequently = LogInfrequently(delay = 30.seconds, logLine = { perSec: Double ->
         Duration.between(startInstant, Instant.now()).let {
             "Runtime: ${it.toMinutes()}m, Running at ${perSec.toInt()}/sec"
         }
@@ -32,21 +35,21 @@ fun commandToFlow(command: Array<String>, maxTime: Duration = Duration.ofMinutes
         .asFlow()
         .flowOn(Dispatchers.IO)
         .onStart {
-            println("commandToFlow.onStart")
+            logger.info { "commandToFlow.onStart" }
         }
         .onCompletion {
-            println("commandToFlow.onCompletion")
+            logger.info {"commandToFlow.onCompletion" }
         }
         .onEach {
             logInfrequently.hit()
             if (Duration.between(startInstant, Instant.now()) > maxTime) {
-                println("commandToFlow.onEach Time is up, stopping process...")
+                logger.info {"commandToFlow.onEach Time is up, stopping process..." }
                 timeToStop.countDown()
             }
         }
         .catch { error ->
             // Most likely the process hit the time limit.
-            println("commandToFlow.catch:$error")
+            logger.warn {"commandToFlow.catch:$error"}
         }
         .takeUntilSignal(timeToStop)
 }
@@ -55,9 +58,9 @@ private fun <T> Flow<T>.takeUntilSignal(signal: CountDownLatch): Flow<T> = flow 
     try {
         coroutineScope {
             launch(Dispatchers.IO) {
-                println("commandToFlow shutdown hook is waiting for the signal.")
+                logger.debug {"commandToFlow shutdown hook is waiting for the signal." }
                 signal.await()
-                println("commandToFlow shutdown hook got the signal that it is time to cancel!")
+                logger.info {"commandToFlow shutdown hook got the signal that it is time to cancel!" }
                 this@coroutineScope.cancel()
             }
 
