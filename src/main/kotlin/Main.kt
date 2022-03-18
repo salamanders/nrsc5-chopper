@@ -9,7 +9,6 @@ import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.apache.commons.lang3.StringUtils
 import java.io.File
-import java.io.Serializable
 import java.time.Duration
 import java.time.Instant
 
@@ -17,9 +16,9 @@ private const val outputWavName = "temp/temp_audio.wav"
 private val logger = KotlinLogging.logger {}
 
 fun main() = runBlocking(Dispatchers.IO) {
-    logger.info {"Tuning in..." }
-    val maxTime = Duration.ofMinutes(60)
-    File("temp/aas").mkdirs()
+    logger.info { "Tuning in..." }
+    val maxTime = Duration.ofMinutes(60*2)
+    val imageFolder = File("./temp/aas").also { it.mkdirs() }
     val frequency = 98.5
     val channel = 0
     File(outputWavName).also {
@@ -35,7 +34,7 @@ fun main() = runBlocking(Dispatchers.IO) {
         frequency.toString(),
         channel.toString()
     )
-    logger.info {"Command: `${command.joinToString(" ")}`"  }
+    logger.info { "Command: `${command.joinToString(" ")}`" }
     lateinit var firstInstant: Instant
 
     /** Current (cumulative) state of play */
@@ -45,7 +44,7 @@ fun main() = runBlocking(Dispatchers.IO) {
         val start: Instant = Instant.now(),
         var length: Duration = Duration.ofSeconds(0),
         val files: Multiset<String> = HashMultiset.create()
-    ) : Serializable
+    )
 
     val messages = commandToFlow(command = command, maxTime = maxTime)
         .dropExtras()
@@ -73,7 +72,7 @@ fun main() = runBlocking(Dispatchers.IO) {
                 // Emit last and restart
                 HDMessage.Type.TITLE -> {
                     if (message.value != stateCurrentSong.title) {
-                        logger.info {"-- DEBUG: New title `${message.value}`" }
+                        logger.info { "-- DEBUG: New title `${message.value}`" }
                         emit(stateCurrentSong.copy())
                         stateCurrentSong = Song(
                             title = message.value,
@@ -85,7 +84,7 @@ fun main() = runBlocking(Dispatchers.IO) {
                 // Emit last and restart
                 HDMessage.Type.ARTIST -> {
                     if (message.value != stateCurrentSong.artist) {
-                        logger.info {"-- DEBUG: New artist `${message.value}`" }
+                        logger.info { "-- DEBUG: New artist `${message.value}`" }
                         emit(stateCurrentSong.copy())
                         stateCurrentSong = Song(
                             title = stateCurrentSong.title,
@@ -98,7 +97,7 @@ fun main() = runBlocking(Dispatchers.IO) {
         }
     }.filter { song ->
         (song.length >= Duration.ofMinutes(3)).also {
-            logger.info {"-- Length check on `${song.artist}` `${song.title}` = $it" }
+            logger.info { "-- Length check on `${song.artist}` `${song.title}` = $it" }
         }
     }
 
@@ -106,7 +105,7 @@ fun main() = runBlocking(Dispatchers.IO) {
         .buffer()
         .flowOn(Dispatchers.IO)
         .collect { song ->
-            logger.info {"Valid song! $song" }
+            logger.info { "Valid song! $song" }
             val safeArtist = StringUtils.stripAccents(song.artist).replace(Regex("[^A-Za-z0-9-]+"), "_")
             val safeTitle = StringUtils.stripAccents(song.title).replace(Regex("[^A-Za-z0-9-]+"), "_")
 
@@ -121,7 +120,15 @@ fun main() = runBlocking(Dispatchers.IO) {
                     offsetFromStart = Duration.between(firstInstant, song.start),
                     length = song.length,
                 )
-                logger.info {"-- Finished async encoding ${destination.absolutePath}" }
+                song.files.elementSet().forEach { fileName ->
+                    val sourceImage = File(imageFolder, fileName)
+                    if(sourceImage.canRead()) {
+                        sourceImage.renameTo(File(outputFolder, fileName))
+                    } else {
+                        logger.warn { "Unable to move image file: `${File(imageFolder, fileName)}`" }
+                    }
+                }
+                logger.info { "-- Finished async encoding ${destination.absolutePath}" }
             }
         }
 }

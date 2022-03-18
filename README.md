@@ -6,5 +6,5 @@ using an RTL-SDR Blog V3 USB dongle.
 TODO
 - [x] m4a encoding using ffmpeg from [this installer](https://gist.github.com/chemputer/5fa4319bc0882cad6613f21f051bbcd2)
 - [ ] embed images
-- [ ] get the timing right (maybe silence?)
+- [ ] get the timing right (maybe [silence](https://ffmpeg.org/ffmpeg-filters.html#silencedetect)?)
 - [ ] direct copy from AAC instead of bouncing through the WAV

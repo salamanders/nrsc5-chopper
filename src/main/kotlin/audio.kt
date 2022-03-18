@@ -14,7 +14,7 @@ suspend fun encodeAudioFileToMp3(source: File, destination: File, offsetFromStar
         "ffmpeg",
         "-ss", offsetFromStart.toHHMMSS(), "-i", source.canonicalPath,
         "-c:a", "libfdk_aac",
-        "-b:a", "64k",
+        "-b:a", "128k",
         "-t", length.toSeconds().toString(), destination.canonicalPath
     )
     withContext(Dispatchers.IO) {
@@ -37,7 +37,6 @@ suspend fun encodeAudioFileToMp3(source: File, destination: File, offsetFromStar
                 logger.error { error }
             }.collect()
     }
-
 }
 
 fun Duration.toHHMMSS(): String {
