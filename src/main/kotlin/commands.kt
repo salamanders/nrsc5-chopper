@@ -12,7 +12,11 @@ import kotlin.time.Duration.Companion.seconds
 private val logger = KotlinLogging.logger {}
 
 /** This should be part of utils */
-fun commandToFlow(command: Array<String>, maxTime: Duration = Duration.ofMinutes(7)): Flow<String> {
+fun commandToFlow(
+    command: Array<String>,
+    maxTime: Duration = Duration.ofMinutes(7),
+    heartbeat: Boolean = true
+): Flow<String> {
     val startInstant = Instant.now()
     val logInfrequently = LogInfrequently(delay = 90.seconds, logLine = { perSec: Double ->
         Duration.between(startInstant, Instant.now()).let {
@@ -37,16 +41,18 @@ fun commandToFlow(command: Array<String>, maxTime: Duration = Duration.ofMinutes
         .asFlow()
         .flowOn(Dispatchers.IO)
         .onStart {
-            logger.info { "commandToFlow.onStart" }
+            logger.info { "commandToFlow.onStart (${command.joinToString(" ").take(30)}...)" }
         }
         .onCompletion {
-            logger.info { "commandToFlow.onCompletion" }
+            logger.info { "commandToFlow.onCompletion (${command.joinToString(" ").take(30)}...)" }
         }
         .onEach {
-            logInfrequently.hit()
+            if (heartbeat) {
+                logInfrequently.hit()
+            }
         }
         .catch { error ->
             // Most likely the process hit the time limit.
-            logger.warn { "commandToFlow.catch:$error" }
+            logger.warn { "commandToFlow.catch:$error (${command.joinToString(" ").take(30)}...)" }
         }
 }

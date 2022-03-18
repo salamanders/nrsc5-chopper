@@ -1,5 +1,5 @@
-import HDMessage.Companion.dropExtras
-import HDMessage.Companion.toHDMessages
+import Nrsc5Message.Companion.dropExtras
+import Nrsc5Message.Companion.toHDMessages
 import com.google.common.collect.HashMultiset
 import com.google.common.collect.Multiset
 import kotlinx.coroutines.Dispatchers
@@ -12,25 +12,33 @@ import java.io.File
 import java.time.Duration
 import java.time.Instant
 
-private const val outputWavName = "temp/temp_audio.wav"
+private const val TEMP_WAV_FILE_NAME = "temp/temp_audio.wav"
+private const val TEMP_IMAGE_FOLDER_NAME = "temp/aas"
 private val logger = KotlinLogging.logger {}
 
 fun main() = runBlocking(Dispatchers.IO) {
     logger.info { "Tuning in..." }
-    val maxTime = Duration.ofMinutes(60*2)
-    val imageFolder = File("./temp/aas").also { it.mkdirs() }
+    val maxTime = Duration.ofMinutes(60 * 8)
     val frequency = 98.5
     val channel = 0
-    File(outputWavName).also {
+    val ignoredFiles = setOf(
+        "52275_SLKUFX\$\$010006.jpg",
+        "52276_SLKUFX\$\$020006.jpg",
+    )
+    val imageFolder = File(TEMP_IMAGE_FOLDER_NAME).also { it.mkdirs() }
+    val tempWavFile = File(TEMP_WAV_FILE_NAME).also {
         if (it.exists()) {
             it.delete()
         }
     }
     val command = arrayOf(
         "nrsc5",
-        "-l", "1",
-        "-o", outputWavName,
-        "--dump-aas-files", "./temp/aas",
+        "-l",
+        "1",
+        "-o",
+        TEMP_WAV_FILE_NAME,
+        "--dump-aas-files",
+        TEMP_IMAGE_FOLDER_NAME,
         frequency.toString(),
         channel.toString()
     )
@@ -46,14 +54,9 @@ fun main() = runBlocking(Dispatchers.IO) {
         val files: Multiset<String> = HashMultiset.create()
     )
 
-    val messages = commandToFlow(command = command, maxTime = maxTime)
-        .dropExtras()
-        .toHDMessages()
-        .onStart {
+    val messages = commandToFlow(command = command, maxTime = maxTime).dropExtras().toHDMessages().onStart {
             firstInstant = Instant.now()
-        }
-        .distinctUntilChanged()
-        .onEach {
+        }.distinctUntilChanged().onEach {
             logger.trace { "Message: $it" }
         }
 
@@ -66,13 +69,15 @@ fun main() = runBlocking(Dispatchers.IO) {
             stateCurrentSong.length = Duration.between(stateCurrentSong.start, Instant.now())
             when (message.type) {
                 // Enhance
-                HDMessage.Type.FILE -> {
-                    stateCurrentSong.files.add(message.value)
+                Nrsc5Message.Type.FILE -> {
+                    if (ignoredFiles.none { message.value.contains(it) }) {
+                        stateCurrentSong.files.add(message.value)
+                    }
                 }
-                // Emit last and restart
-                HDMessage.Type.TITLE -> {
+                // Emit last and restart.  This part is messy.
+                Nrsc5Message.Type.TITLE -> {
                     if (message.value != stateCurrentSong.title) {
-                        logger.info { "-- DEBUG: New title `${message.value}`" }
+                        logger.info { "New title `${message.value}`" }
                         emit(stateCurrentSong.copy())
                         stateCurrentSong = Song(
                             title = message.value,
@@ -82,9 +87,9 @@ fun main() = runBlocking(Dispatchers.IO) {
                     }
                 }
                 // Emit last and restart
-                HDMessage.Type.ARTIST -> {
+                Nrsc5Message.Type.ARTIST -> {
                     if (message.value != stateCurrentSong.artist) {
-                        logger.info { "-- DEBUG: New artist `${message.value}`" }
+                        logger.info { "New artist `${message.value}`" }
                         emit(stateCurrentSong.copy())
                         stateCurrentSong = Song(
                             title = stateCurrentSong.title,
@@ -97,14 +102,11 @@ fun main() = runBlocking(Dispatchers.IO) {
         }
     }.filter { song ->
         (song.length >= Duration.ofMinutes(3)).also {
-            logger.info { "-- Length check on `${song.artist}` `${song.title}` = $it" }
+            logger.info { "Length check on `${song.artist}` `${song.title}` = $it" }
         }
     }
 
-    songs
-        .buffer()
-        .flowOn(Dispatchers.IO)
-        .collect { song ->
+    songs.buffer().flowOn(Dispatchers.IO).collect { song ->
             logger.info { "Valid song! $song" }
             val safeArtist = StringUtils.stripAccents(song.artist).replace(Regex("[^A-Za-z0-9-]+"), "_")
             val safeTitle = StringUtils.stripAccents(song.title).replace(Regex("[^A-Za-z0-9-]+"), "_")
@@ -114,21 +116,21 @@ fun main() = runBlocking(Dispatchers.IO) {
                     it.mkdirs()
                 }
                 val destination = File(outputFolder, "$safeTitle.m4a")
-                encodeAudioFileToMp3(
-                    source = File(outputWavName),
+                audioToM4A(
+                    source = tempWavFile,
                     destination = destination,
                     offsetFromStart = Duration.between(firstInstant, song.start),
                     length = song.length,
                 )
                 song.files.elementSet().forEach { fileName ->
                     val sourceImage = File(imageFolder, fileName)
-                    if(sourceImage.canRead()) {
+                    if (sourceImage.canRead()) {
                         sourceImage.renameTo(File(outputFolder, fileName))
                     } else {
                         logger.warn { "Unable to move image file: `${File(imageFolder, fileName)}`" }
                     }
                 }
-                logger.info { "-- Finished async encoding ${destination.absolutePath}" }
+                logger.info { "Finished async encoding ${destination.absolutePath}" }
             }
         }
 }

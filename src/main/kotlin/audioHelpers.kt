@@ -7,7 +7,10 @@ import java.time.Duration
 
 private val logger = KotlinLogging.logger {}
 
-suspend fun encodeAudioFileToMp3(source: File, destination: File, offsetFromStart: Duration, length: Duration) {
+/**
+ * Requires ffmpeg with libfdk_aac, see resources/build_ffmpeg.sh
+ */
+suspend fun audioToM4A(source: File, destination: File, offsetFromStart: Duration, length: Duration) {
     require(source.canRead()) { "Unable to read ${source.canonicalPath}" }
 
     val command = arrayOf(
@@ -39,7 +42,7 @@ suspend fun encodeAudioFileToMp3(source: File, destination: File, offsetFromStar
     }
 }
 
-fun Duration.toHHMMSS(): String {
+private fun Duration.toHHMMSS(): String {
     val hh = this.toHours()
     val mm = this.toMinutesPart()
     val ss = this.toSecondsPart()
