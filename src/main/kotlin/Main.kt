@@ -1,26 +1,79 @@
-import Nrsc5Message.Companion.dropExtras
-import Nrsc5Message.Companion.toHDMessages
-import com.google.common.collect.HashMultiset
-import com.google.common.collect.Multiset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import org.apache.commons.lang3.StringUtils
 import java.io.File
+import java.io.InputStream
 import java.time.Duration
-import java.time.Instant
 
 private const val TEMP_WAV_FILE_NAME = "temp/temp_audio.wav"
 private const val TEMP_IMAGE_FOLDER_NAME = "temp/aas"
 private val logger = KotlinLogging.logger {}
 
+private val maxTime = Duration.ofMinutes(60 * 8)
+private const val frequency = 98.5
+private const val channel = 0
+
+fun main() = runBlocking(Dispatchers.IO) {
+    logger.info { "Launching nrsc5 and tuning in..." }
+    val command = arrayOf(
+        "nrsc5",
+        "-l",
+        "1",
+        "-o",
+        "-", // TEMP_WAV_FILE_NAME
+        "--dump-aas-files",
+        TEMP_IMAGE_FOLDER_NAME,
+        frequency.toString(),
+        channel.toString()
+    )
+    logger.info { command.joinToString(" ") }
+
+    val process = ProcessBuilder()
+        .command(*command)
+        .directory(File("."))
+        .start()!!
+
+    logger.debug { "nrsc5 launched" }
+
+    val songInfoFlow =
+        process.errorStream.linesToFlow().onStart { println("process.errorStream (song metadata) started") }
+
+
+    val wavDataFlow = process.inputStream
+        .let { inStream ->
+            flow {
+                val bis = inStream.buffered()
+                val buffer = ByteArray(1024 * 16)
+                println("Support mark? ${bis.markSupported()}")
+                var bytesRead: Int
+                while (bis.read(buffer).also { bytesRead = it } != -1) {
+                    println("Read ${bytesRead / 1024}kb from bis")
+                    emit(buffer.copyOfRange(0, bytesRead))
+                }
+            }
+                .onStart { println("Starting errorStream flow") }
+                .onCompletion { inStream.close() }
+                .flowOn(Dispatchers.IO)
+        }
+
+    launch(Dispatchers.IO) {
+        songInfoFlow.collect { line ->
+            println("errorStream: $line")
+        }
+    }
+    launch(Dispatchers.IO) {
+        wavDataFlow.collect { byteArray ->
+            println("Collected a byteArray size ${byteArray.size}")
+        }
+    }
+    println("All readers have been launched.")
+}
+/*
 fun main() = runBlocking(Dispatchers.IO) {
     logger.info { "Tuning in..." }
-    val maxTime = Duration.ofMinutes(60 * 8)
-    val frequency = 98.5
-    val channel = 0
+
     val ignoredFiles = setOf(
         "52275_SLKUFX\$\$010006.jpg",
         "52276_SLKUFX\$\$020006.jpg",
@@ -31,17 +84,7 @@ fun main() = runBlocking(Dispatchers.IO) {
             it.delete()
         }
     }
-    val command = arrayOf(
-        "nrsc5",
-        "-l",
-        "1",
-        "-o",
-        TEMP_WAV_FILE_NAME,
-        "--dump-aas-files",
-        TEMP_IMAGE_FOLDER_NAME,
-        frequency.toString(),
-        channel.toString()
-    )
+
     logger.info { "Command: `${command.joinToString(" ")}`" }
     lateinit var firstInstant: Instant
 
@@ -134,8 +177,7 @@ fun main() = runBlocking(Dispatchers.IO) {
             }
         }
 }
+*/
 
-
-
-
-
+fun InputStream.linesToFlow(): Flow<String> =
+    bufferedReader().lineSequence().asFlow().onCompletion { this@linesToFlow.close() }.flowOn(Dispatchers.IO)
