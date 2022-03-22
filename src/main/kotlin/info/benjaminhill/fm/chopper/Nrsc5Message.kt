@@ -1,5 +1,6 @@
+package info.benjaminhill.fm.chopper
+
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.transform
 import mu.KLoggable
 import java.io.Serializable
@@ -44,23 +45,35 @@ internal data class Nrsc5Message(
             "Station name:",
         )
 
-        /** Immediately ignore as much as possible */
-        internal fun Flow<String>.dropExtras(): Flow<String> = filter { line ->
-            IGNORE_LINES.none { line.contains(it) } && !line.endsWith(" Synchronized")
-        }
-
-        internal fun Flow<String>.toHDMessages(): Flow<Nrsc5Message> = transform { line ->
-            when {
-                titleRe.containsMatchIn(line) -> emit(Nrsc5Message(Type.TITLE, titleRe.find(line)!!.groupValues[1]))
-                artistRe.containsMatchIn(line) -> emit(Nrsc5Message(Type.ARTIST, artistRe.find(line)!!.groupValues[1]))
-                fileRe.containsMatchIn(line) -> {
-                    emit(
-                        Nrsc5Message(Type.FILE, fileRe.find(line)!!.let { "${it.groupValues[1]}_${it.groupValues[2]}" })
-                    )
+        internal fun Flow<Pair<Instant, String>>.toHDMessages(): Flow<Pair<Instant, Nrsc5Message>> =
+            transform { (instant, line) ->
+                if (IGNORE_LINES.any { line.contains(it) } || line.endsWith(" Synchronized")) {
+                    return@transform
                 }
-                else -> logger.warn { "Unexpected line, add to ignore: `$line`" }
+                when {
+                    titleRe.containsMatchIn(line) -> emit(
+                        instant to Nrsc5Message(
+                            Type.TITLE,
+                            titleRe.find(line)!!.groupValues[1]
+                        )
+                    )
+                    artistRe.containsMatchIn(line) -> emit(
+                        instant to Nrsc5Message(
+                            Type.ARTIST,
+                            artistRe.find(line)!!.groupValues[1]
+                        )
+                    )
+                    fileRe.containsMatchIn(line) -> {
+                        emit(
+                            instant to
+                                    Nrsc5Message(
+                                        Type.FILE,
+                                        fileRe.find(line)!!.let { "${it.groupValues[1]}_${it.groupValues[2]}" })
+                        )
+                    }
+                    else -> logger.warn { "Unexpected line, add to ignore: `$line`" }
+                }
             }
-        }
     }
 }
 
