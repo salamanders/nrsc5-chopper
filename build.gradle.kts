@@ -25,6 +25,8 @@ dependencies {
     implementation("org.apache.commons:commons-lang3:3.12.0")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
     implementation("com.google.guava:guava:31.1-jre")
+    implementation("com.google.code.gson:gson:2.9.0")
+
     testImplementation(kotlin("test"))
 }
 

@@ -10,15 +10,10 @@ import java.time.Instant
 internal data class Nrsc5Message(
     val type: Type, val value: String
 ) : Serializable {
-    enum class Type {
-        TITLE, ARTIST, FILE
-    }
+
 
     companion object : Any(), KLoggable {
         override val logger = logger()
-        private val titleRe = """\bTitle: (.+)""".toRegex()
-        private val artistRe = """\bArtist: (.+)""".toRegex()
-        private val fileRe = """\bLOT file:.+\blot=(\d+).+\bname=(\S+)""".toRegex()
 
         private val IGNORE_LINES = setOf(
             " XHDR:",
@@ -30,7 +25,6 @@ internal data class Nrsc5Message(
             "Data service: public, type: Navigation",
             "Data service: public, type: Traffic",
             "Data service: public, type: Service Maintenance",
-            "Audio bit rate:",
             "PLL not locked!",
             "zero-copy buffers",
             "Audio program",
@@ -50,36 +44,35 @@ internal data class Nrsc5Message(
                 if (IGNORE_LINES.any { line.contains(it) } || line.endsWith(" Synchronized")) {
                     return@transform
                 }
-                when {
-                    titleRe.containsMatchIn(line) -> emit(
-                        instant to Nrsc5Message(
-                            Type.TITLE,
-                            titleRe.find(line)!!.groupValues[1]
-                        )
-                    )
-                    artistRe.containsMatchIn(line) -> emit(
-                        instant to Nrsc5Message(
-                            Type.ARTIST,
-                            artistRe.find(line)!!.groupValues[1]
-                        )
-                    )
-                    fileRe.containsMatchIn(line) -> {
-                        emit(
-                            instant to
-                                    Nrsc5Message(
-                                        Type.FILE,
-                                        fileRe.find(line)!!.let { "${it.groupValues[1]}_${it.groupValues[2]}" })
-                        )
-                    }
-                    else -> logger.warn { "Unexpected line, add to ignore: `$line`" }
-                }
+                Type.values().firstOrNull { it.matches(line) }?.let { type->
+                    emit(instant to Nrsc5Message(type, type.value(line)))
+                } ?: logger.warn { "Unexpected line, add to ignore: `$line`" }
             }
     }
+
+    enum class Type(
+        private val regexp:Regex,
+        private val template:(MatchResult?)->String = {it!!.groupValues[1]}
+    ) {
+        TITLE(regexp="""\bTitle: (.+)""".toRegex()),
+        ARTIST(regexp="""\bArtist: (.+)""".toRegex()),
+        FILE(
+            regexp="""\bLOT file:.+\blot=(\d+).+\bname=(\S+)""".toRegex(),
+            template={ result:MatchResult?-> result!!.let { "${it.groupValues[1]}_${it.groupValues[2]}"} }
+        ),
+        BITRATE(regexp="""\bAudio bit rate: ([0-9.])+ kbps""".toRegex());
+
+        fun matches(line:String) = regexp.containsMatchIn(line)
+
+        fun value(line:String) = template(regexp.find(line))
+    }
+    /** Current (cumulative) state of play, based on running latest message */
+    internal data class State(
+        val title: String = "",
+        val artist: String = "",
+        val file: String = "",
+        val bitrate:Double = 0.0
+    )
 }
 
-/** Current (cumulative) state of play, based on running latest message */
-internal data class State(
-    val title: String = "",
-    val artist: String = "",
-    val file: String = "",
-)
+
