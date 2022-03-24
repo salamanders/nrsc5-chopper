@@ -1,60 +1,61 @@
 package info.benjaminhill.fm.chopper
 
 import info.benjaminhill.fm.chopper.Nrsc5Message.Companion.toHDMessages
+import info.benjaminhill.utils.timedProcess
+import info.benjaminhill.utils.toTimedLines
+import info.benjaminhill.utils.toTimedSamples
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import org.apache.commons.lang3.StringUtils
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.Duration
 import java.time.Instant
 
 
-private const val TEMP_IMAGE_FOLDER_NAME = "temp/aas"
 private val logger = KotlinLogging.logger {}
 
-private val maxTime = Duration.ofMinutes(5)
-private const val frequency = 98.5
-private const val channel = 0
-
+private const val TEMP_IMAGE_FOLDER_NAME = "temp/aas"
+private val maxTime = Duration.ofHours(10)
+private const val stationFrequency = 98.5
+private const val stationChannel = 0
 private const val WAV_HEADER_BYTES = 44L
+private const val BUFFER_SECONDS = 15L
 
-/** Current (cumulative) state of play */
-data class State(
-    val title: String = "",
-    val artist: String = "",
-    val file: String = "",
-)
+// private val audioWriter = CoroutineScope(Dispatchers.IO)
 
-val ignoredFiles = setOf(
-    "52275_SLKUFX\$\$010006.jpg",
-    "52276_SLKUFX\$\$020006.jpg",
-)
-
-val cachedStates: ArrayDeque<Pair<Instant, State>> = ArrayDeque<Pair<Instant, State>>().also {
+internal val cachedStates: ArrayDeque<Pair<Instant, State>> = ArrayDeque<Pair<Instant, State>>().also {
     it.add(Instant.now() to State())
 }
 val cachedWav: ArrayDeque<Pair<Instant, ByteArray>> = ArrayDeque()
+//val topRepeatedImages = CounterFIFO()
 
 fun main() = runBlocking(Dispatchers.IO) {
-    val imageFolder = File(TEMP_IMAGE_FOLDER_NAME).also { it.mkdirs() }
+    File(TEMP_IMAGE_FOLDER_NAME).also { it.mkdirs() }
     logger.info { "Launching nrsc5 and tuning in..." }
 
     val (wavDataStream, songInfoStream) = timedProcess(
+        // TEMP_WAV_FILE_NAME ('dash' means send wav data direct to std output)
         command = arrayOf(
-            "nrsc5", "-l", "1", "-o", "-", // TEMP_WAV_FILE_NAME ('dash' means send wav data direct to std output)
-            "--dump-aas-files", TEMP_IMAGE_FOLDER_NAME, frequency.toString(), channel.toString()
+            "nrsc5",
+            "-l",
+            "1",
+            "-o",
+            "-",
+            "--dump-aas-files",
+            TEMP_IMAGE_FOLDER_NAME,
+            stationFrequency.toString(),
+            stationChannel.toString()
         ),
-        maxTime = maxTime,
+        maxDuration = maxTime,
     )
-    logger.debug { "nrsc5 launched" }
+    logger.debug { "nrsc5 running" }
 
     launch(Dispatchers.IO) {
         songInfoStream.toTimedLines().toHDMessages().collect { (ts, hdMessage) ->
-                handleHDMessage(ts, hdMessage)
-            }
+            handleHDMessage(ts, hdMessage)
+        }
     }
 
     // Continues to build up old audio data, hopefully doesn't overflow!
@@ -66,16 +67,18 @@ fun main() = runBlocking(Dispatchers.IO) {
 }
 
 /** Not the most clean way to do this. */
-private suspend fun handleHDMessage(
-    ts: Instant,
+private fun handleHDMessage(
+    hdTs: Instant,
     hdMessage: Nrsc5Message,
 ) {
     val (_, currentState) = cachedStates.last()
     when (hdMessage.type) {
+        // New FILEs never mean a new song.  But we still log it for album art.
         Nrsc5Message.Type.FILE -> {
-            if (currentState.file != hdMessage.value && ignoredFiles.none { hdMessage.value.contains(it) }) {
+            // topRepeatedImages.inc(hdMessage.value)
+            if (currentState.file != hdMessage.value) {
                 cachedStates.addLast(
-                    ts to currentState.copy(
+                    hdTs to currentState.copy(
                         file = hdMessage.value
                     )
                 )
@@ -84,9 +87,9 @@ private suspend fun handleHDMessage(
         // Saw a new TITLE, but not sure yet how good it is.
         Nrsc5Message.Type.TITLE -> {
             if (currentState.title != hdMessage.value) {
-                logger.info { "New title `${currentState.title}` -> `${hdMessage.value}`" }
+                logger.info { "New title `${currentState.title}` -> ${currentState.artist}:`${hdMessage.value}`" }
                 cachedStates.addLast(
-                    ts to currentState.copy(
+                    hdTs to currentState.copy(
                         title = hdMessage.value
                     )
                 )
@@ -96,9 +99,9 @@ private suspend fun handleHDMessage(
         // Saw a new ARTIST, but not sure yet how good it is.
         Nrsc5Message.Type.ARTIST -> {
             if (currentState.artist != hdMessage.value) {
-                logger.info { "New artist `${currentState.artist}` -> `${hdMessage.value}`" }
+                logger.info { "New artist `${currentState.artist}` -> `${hdMessage.value}`:${currentState.title}" }
                 cachedStates.addLast(
-                    ts to currentState.copy(
+                    hdTs to currentState.copy(
                         artist = hdMessage.value
                     )
                 )
@@ -108,29 +111,26 @@ private suspend fun handleHDMessage(
     }
 }
 
-suspend fun checkIfSongJustEnded() {
+internal fun checkIfSongJustEnded() {
     if (cachedStates.size < 2) {
         return
     }
     Duration.between(cachedStates.first().first, cachedStates.last().first).let { totalDur ->
         if (totalDur < Duration.ofMinutes(3)) {
-            logger.info { "Not enough time: ${totalDur.toSeconds()}s (count: ${cachedStates.size})" }
+            logger.debug { "Not enough time: ${totalDur.toSeconds()}s (count: ${cachedStates.size})" }
             return
         }
     }
     val artistSongSeconds = mutableMapOf<Pair<String, String>, Duration>()
-    val artistSongImageSeconds = mutableMapOf<Triple<String, String, String>, Duration>()
+
     // Skips last state, which is good - that is where we might trim up to.
     cachedStates.zipWithNext { (ts0, state0), (ts1, _) ->
         (state0.artist to state0.title).let { artistTitle ->
             val count = artistSongSeconds.getOrDefault(artistTitle, Duration.ZERO)
             artistSongSeconds[artistTitle] = count + Duration.between(ts0, ts1)
         }
-        Triple(state0.artist, state0.title, state0.file).let { atf ->
-            val count = artistSongImageSeconds.getOrDefault(atf, Duration.ZERO)
-            artistSongImageSeconds[atf] = count + Duration.between(ts0, ts1)
-        }
     }
+    // We don't want a "wrapper" of the station ID bookending a song, we want actual on-the-screen time.
     val longestStretch = artistSongSeconds.maxByOrNull { it.value }!!
     if (longestStretch.value <= Duration.ofMinutes(3)) {
         logger.info {
@@ -139,50 +139,69 @@ suspend fun checkIfSongJustEnded() {
     }
     val (artist, title) = longestStretch.key
     logger.info { "Finished a song: $artist: $title (${longestStretch.value.toSeconds()}s)" }
-
-    // Sometimes we don't get the artist or title for a bit...
-    val start = cachedStates.first { (_, state) ->
-        state.artist == artist || state.title == title
-    }.first
-    val end = cachedStates.last { (_, state) ->
-        state.artist == artist || state.title == title
-    }.first
-    logger.info { "Expanded time: ${Duration.between(start, end).toSeconds()}s" }
-
-    val safeArtist = StringUtils.stripAccents(artist).replace(Regex("[^A-Za-z0-9-]+"), "_")
-    val safeTitle = StringUtils.stripAccents(title).replace(Regex("[^A-Za-z0-9-]+"), "_")
-
-    val outputFolder = File("output", safeArtist).also {
-        it.mkdirs()
-    }
-    // Catch up to this moment (maybe only up to the end of the expanded song?)
-    cachedStates.removeIf { (ts, _) ->
-        ts < end
+    val songMeta = SongMetadata.create(artist = artist, title = title).apply {
+        start = cachedStates.first { (_, state) ->
+            state.artist == artist && state.title == title
+        }.first
+        end = cachedStates.last { (_, state) ->
+            state.artist == artist && state.title == title
+        }.first
+        frequency = stationFrequency
+        channel = stationChannel
+        bufferSeconds = BUFFER_SECONDS
     }
 
-    val outputStream = ByteArrayOutputStream()
-    cachedWav.forEach { (ts, ba) ->
-        if (ts in start..end) {
-            outputStream.write(ba)
+
+    // Best to buffer a bit, and trim later.
+    songMeta.startBuffered = (songMeta.start!! - Duration.ofSeconds(songMeta.bufferSeconds)).coerceAtLeast(cachedWav.minOf { it.first })
+    songMeta.endBuffered = (songMeta.end!! + Duration.ofSeconds(songMeta.bufferSeconds)).coerceAtMost(cachedWav.maxOf { it.first })
+    logger.info { "Expanded time: ${Duration.between(songMeta.startBuffered, songMeta.endBuffered).toSeconds()}s" }
+
+    // which image was on-screen the most during the song?
+    val artistSongImageSeconds = mutableMapOf<Triple<String, String, String>, Duration>()
+    cachedStates.filter { (ts, state) ->
+        ts in songMeta.startBuffered!!..songMeta.endBuffered!! && !state.file.contains("$$")
+    }.zipWithNext { (ts0, state0), (ts1, _) ->
+        Triple(state0.artist, state0.title, state0.file).let { atf ->
+            //if (!topRepeatedImages.topN(2).contains(state0.file)) {
+            val count = artistSongImageSeconds.getOrDefault(atf, Duration.ZERO)
+            artistSongImageSeconds[atf] = count + Duration.between(ts0, ts1)
+            //}
         }
     }
-    cachedWav.removeIf { (ts, _) ->
-        ts < end
+    songMeta.nextWavFile.writeBytes(ByteArrayOutputStream().apply {
+        cachedWav.forEach { (ts, ba) ->
+            if (ts in songMeta.startBuffered!!..songMeta.endBuffered!!) {
+                write(ba)
+            }
+        }
+    }.toByteArray())
+
+    val mostPopularImage = artistSongImageSeconds.maxByOrNull { it.value }?.key?.third
+    mostPopularImage?.let {
+        File(TEMP_IMAGE_FOLDER_NAME, it).copyTo(songMeta.imageFile)
+        logger.info { "Copied image `$it` into ${songMeta.imageFile.canonicalPath}" }
+    } ?: logger.warn { "Unable to place image for `${songMeta.artist}` `${songMeta.title}`" }
+
+    songMeta.save()
+
+    // Remove extra history (both states and WAV), don't run out of memory!
+    listOf(cachedStates, cachedWav).forEach { cache ->
+        while (cache.isNotEmpty() && cache.firstOrNull()?.first?.let { it < songMeta.end } == true) {
+            cache.removeFirst()
+        }
     }
+
+    logger.info { "After a song, there are cachedStates:${cachedStates.size}, cachedWav:${cachedWav.size}" }
+    /*
     val destination = File(outputFolder, "$safeTitle.m4a")
     // This may be badly blocking...
-    audioToM4A(
-        source = outputStream.toByteArray(),
-        destination = destination,
-    )
-    // TODO: Most popular file (with the same artist+title)
+    audioWriter.launch {
+        audioToM4A(
+            source = outputStream.toByteArray(),
+            destination = destination,
+        )
+    }
+    */
 }
-/*
-song.files.elementSet().forEach { fileName ->
-val sourceImage = File(imageFolder, fileName)
-if (sourceImage.canRead()) {
-    sourceImage.renameTo(File(outputFolder, fileName))
-} else {
-    logger.warn { "Unable to move image file: `${File(imageFolder, fileName)}`" }
-}
-*/
+

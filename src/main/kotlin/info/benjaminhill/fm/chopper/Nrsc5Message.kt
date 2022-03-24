@@ -8,7 +8,7 @@ import java.time.Instant
 
 /** Every update that we might use is captured in timestamped copies of the state */
 internal data class Nrsc5Message(
-    val type: Type, val value: String, val ts: Instant = Instant.now()
+    val type: Type, val value: String
 ) : Serializable {
     enum class Type {
         TITLE, ARTIST, FILE
@@ -77,3 +77,9 @@ internal data class Nrsc5Message(
     }
 }
 
+/** Current (cumulative) state of play, based on running latest message */
+internal data class State(
+    val title: String = "",
+    val artist: String = "",
+    val file: String = "",
+)

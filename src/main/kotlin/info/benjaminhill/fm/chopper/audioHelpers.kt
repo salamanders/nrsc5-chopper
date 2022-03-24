@@ -12,7 +12,7 @@ private val logger = KotlinLogging.logger {}
 /**
  * Requires ffmpeg with libfdk_aac, see resources/build_ffmpeg.sh
  */
-suspend fun audioToM4A(source: ByteArray, destination: File) {
+internal suspend fun audioToM4A(source: ByteArray, destination: File) {
 
     val command = arrayOf(
         "ffmpeg",
