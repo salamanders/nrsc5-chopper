@@ -17,9 +17,9 @@ using an RTL-SDR Blog V3 USB dongle.
 
 TODO
 - [x] m4a encoding using ffmpeg from [this installer](https://gist.github.com/chemputer/5fa4319bc0882cad6613f21f051bbcd2)
-- [ ] Bouncing though a WAV file fills up eventually.  We should write to "-" instead
+- [x] Bouncing though a WAV file fills up eventually.  We should write to "-" instead
 - [ ] embed images (but WHICH image?)
 - [ ] Pass in station on the command line (or look around for a good station?)
 - [ ] get the timing right (maybe [silence?](https://ffmpeg.org/ffmpeg-filters.html#silencedetect))
 - [ ] direct copy from AAC instead of bouncing through the WAV using... uh... magic.
-- [ ] Earlier start times (the moment the artist or title isn't right)
+- [x] Earlier start times (the moment the artist or title isn't right)

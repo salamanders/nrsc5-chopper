@@ -14,9 +14,8 @@ repositories {
     maven { setUrl("https://jitpack.io") }
 }
 
-
 dependencies {
-    implementation("com.github.salamanders:utils:865139c332")
+    implementation("com.github.salamanders:utils:8b26a086c5")
     // implementation(kotlin("stdlib-jdk8"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.20-RC")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.6.0")
