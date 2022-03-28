@@ -1,5 +1,8 @@
 package info.benjaminhill.fm.chopper
 
+import com.xenomachina.argparser.ArgParser
+import com.xenomachina.argparser.InvalidArgumentException
+import com.xenomachina.argparser.default
 import info.benjaminhill.fm.chopper.Nrsc5Message.Companion.toHDMessages
 import info.benjaminhill.fm.chopper.SongMetadata.Companion.getFirstUnusedCount
 import info.benjaminhill.utils.*
@@ -16,14 +19,57 @@ import java.time.Instant
 
 private val logger = KotlinLogging.logger {}
 
-private const val TEMP_IMAGE_FOLDER_NAME = "temp/aas"
-private val maxDuration = Duration.ofHours(48)
-private const val stationFrequency = 98.5
-private const val stationChannel = 0
 private const val WAV_HEADER_BYTES = 44L
 private const val BUFFER_SECONDS = 15L
 
 // private val audioWriter = CoroutineScope(Dispatchers.IO)
+
+class ChopperArgs(parser: ArgParser) {
+    val verbose by parser.flagging(
+        "-v", "--verbose",
+        help = "enable verbose mode"
+    )
+    val maxDuration: Duration by parser.storing(
+        "-d", "--duration",
+        help = "max duration (in days, default limitless)"
+    ) { Duration.ofHours(this.toLong()) }
+        .default(Duration.ofDays(999999))
+
+    val output:File by parser.storing(
+        "-o", "--output",
+        help = "output folder location (default: ./output"
+    ) { File(this) }.default(File("./output"))
+        .addValidator {
+            value.mkdirs()
+            if (!value.exists() || !value.canWrite())
+                throw InvalidArgumentException("Unable to write to `${value.canonicalPath}`")
+        }
+
+    val temp: File by parser.storing(
+        "-t", "--temp",
+        help = "temp file location (default: ./temp)"
+    ) { File(this) }.default(File("./temp"))
+        .addValidator {
+            value.mkdirs()
+            if (!value.exists() || !value.canWrite())
+                throw InvalidArgumentException("Unable to write to `${value.canonicalPath}`")
+        }
+
+    val frequency: Double by parser.positional(
+        "FREQUENCY",
+        help = "station frequency (default=98.5)",
+    ) { toDouble() }.default(98.5)
+
+    val channel:Int by parser.positional(
+        "CHANNEL",
+        help = "station channel 0..3 (default=0)"
+    ) { toInt() }.default(0)
+        .addValidator {
+            if (value !in 0..3)
+                throw InvalidArgumentException("channel must be in 0..3")
+        }
+}
+internal lateinit var parsedArgs: ChopperArgs
 
 internal val cachedStates: ArrayDeque<Pair<Instant, Nrsc5Message.State>> =
     ArrayDeque<Pair<Instant, Nrsc5Message.State>>().also {
@@ -31,8 +77,11 @@ internal val cachedStates: ArrayDeque<Pair<Instant, Nrsc5Message.State>> =
     }
 val cachedWav: ArrayDeque<Pair<Instant, ByteArray>> = ArrayDeque()
 
-fun main() = runBlocking(Dispatchers.IO) {
-    File(TEMP_IMAGE_FOLDER_NAME).also { it.mkdirs() }
+
+
+fun main(args:Array<String>) = runBlocking(Dispatchers.IO) {
+    parsedArgs = ArgParser(args).parseInto(::ChopperArgs)
+
     logger.info { "Launching nrsc5 and tuning in..." }
 
     val processIO: ProcessIO = timedProcess(
@@ -44,11 +93,11 @@ fun main() = runBlocking(Dispatchers.IO) {
             "-o",
             "-",
             "--dump-aas-files",
-            TEMP_IMAGE_FOLDER_NAME,
-            stationFrequency.toString(),
-            stationChannel.toString()
+            parsedArgs.temp.canonicalPath,
+            parsedArgs.frequency.toString(),
+            parsedArgs.channel.toString()
         ),
-        maxDuration = maxDuration,
+        maxDuration = parsedArgs.maxDuration,
     )
     logger.info { "nrsc5 running" }
 
@@ -65,7 +114,7 @@ fun main() = runBlocking(Dispatchers.IO) {
 
     // Build up audio data, hopefully doesn't overflow!
     launch(Dispatchers.IO) {
-        processIO.getFrom.let { wavDataStream->
+        processIO.getFrom.let { wavDataStream ->
             wavDataStream.skip(WAV_HEADER_BYTES)
             // Each sample is 4 bytes
             wavDataStream.toTimedSamples(sampleSize = 4 * 1024).collect(cachedWav::add)
@@ -75,11 +124,12 @@ fun main() = runBlocking(Dispatchers.IO) {
 
     // Final loop keeps the app from exiting.
     while (processIO.process.isAlive) {
-        val stateChanges = cachedStates.groupingBy { it.second.changeType }.eachCount().entries.sortedByDescending { it.value }
-        logger.info { "Wav cache size:${cachedWav.size}, ${cachedWav.sumOf { it.second.size}/(1024*1024)}mb"  }
-        logger.info {" State cache size:${cachedStates.size}, $stateChanges" }
+        val stateChanges =
+            cachedStates.groupingBy { it.second.changeType }.eachCount().entries.sortedByDescending { it.value }
+        logger.info { "Wav cache size:${cachedWav.size}, ${cachedWav.sumOf { it.second.size } / (1024 * 1024)}mb" }
+        logger.info { " State cache size:${cachedStates.size}, $stateChanges" }
         checkIfSongJustEnded()
-        delay(10_000)
+        delay(30_000)
     }
     logger.info { "Process ended." }
 }
@@ -100,13 +150,13 @@ private fun checkIfSongJustEnded() {
         ts to (state.artist to state.title)
     })
     val longestStretch = artistTitleDuration.maxByOrNull { it.value }
-    if(longestStretch== null) {
-        logger.warn { "Longest stretch was null when looking at ${cachedStates.size} states?"}
+    if (longestStretch == null) {
+        logger.warn { "Longest stretch was null when looking at ${cachedStates.size} states?" }
         return
     }
     val (artistTitle, duration) = longestStretch
     val (artist, title) = artistTitle
-    if(cachedStates.last().second.let { it.artist==artist && it.title==title  }) {
+    if (cachedStates.last().second.let { it.artist == artist && it.title == title }) {
         // still working on the longest song
         return
     }
@@ -137,12 +187,12 @@ private fun saveSong(artist: String, title: String) {
         artist = artist,
         title = title,
         count = nthTimeSong,
-        frequency = stationFrequency,
-        channel = stationChannel,
+        frequency = parsedArgs.frequency,
+        channel = parsedArgs.channel,
         bufferSeconds = BUFFER_SECONDS,
         start = start,
         end = end,
-        bitrate = cachedStates.filter { (ts, state)->
+        bitrate = cachedStates.filter { (ts, state) ->
             ts in start..end && state.bitrate > 0.0
         }.map { it.second.bitrate }.average().round(1),
         startBuffered = (start - Duration.ofSeconds(BUFFER_SECONDS)).coerceAtLeast(cachedWav.minOf { it.first }),
@@ -164,7 +214,7 @@ private fun saveSong(artist: String, title: String) {
         instant in (songMeta.start + Duration.ofSeconds(15))..songMeta.end && !state.file.contains("$$")
     }?.second
     if (goodImageState != null) {
-        val sourceImageFile = File(TEMP_IMAGE_FOLDER_NAME, goodImageState.file)
+        val sourceImageFile = File(parsedArgs.temp, goodImageState.file)
         if (sourceImageFile.exists()) {
             sourceImageFile.copyTo(songMeta.imageFile())
         } else {

@@ -28,9 +28,9 @@ data class SongMetadata(
     val bitrate: Double,
 ) : Serializable {
 
-    fun imageFile(): File = File(File(OUTPUT_DIR, escape(artist)), "${escape(title)}.%05d.jpg".format(count))
+    fun imageFile(): File = File(File(parsedArgs.output, escape(artist)), "${escape(title)}.%05d.jpg".format(count))
 
-    fun wavFile(): File = File(File(OUTPUT_DIR, escape(artist)), "${escape(title)}.%05d.wav".format(count))
+    fun wavFile(): File = File(File(parsedArgs.output, escape(artist)), "${escape(title)}.%05d.wav".format(count))
 
     private fun metaFile(): File = potentialMetaFile(artist, title, count)
 
@@ -43,10 +43,9 @@ data class SongMetadata(
 
     companion object : Any(), KLoggable {
         override val logger = logger()
-        private const val OUTPUT_DIR = "output"
 
         private fun potentialMetaFile(artist: String, title: String, count: Long): File {
-            val artistFolder = File(OUTPUT_DIR, escape(artist)).also { it.mkdirs() }
+            val artistFolder = File(parsedArgs.output, escape(artist)).also { it.mkdirs() }
             return File(artistFolder, "${escape(title)}.%05d.json".format(count))
         }
 

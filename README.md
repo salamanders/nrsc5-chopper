@@ -21,5 +21,7 @@ TODO
 - [ ] embed images (but WHICH image?)
 - [ ] Pass in station on the command line (or look around for a good station?)
 - [ ] get the timing right (maybe [silence?](https://ffmpeg.org/ffmpeg-filters.html#silencedetect))
+- [ ] or maybe FFT? https://github.com/mileshenrichs/QuiFFT
 - [ ] direct copy from AAC instead of bouncing through the WAV using... uh... magic.
 - [x] Earlier start times (the moment the artist or title isn't right)
+- [x] Real command line args
