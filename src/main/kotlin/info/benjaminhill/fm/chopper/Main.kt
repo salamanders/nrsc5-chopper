@@ -1,8 +1,6 @@
 package info.benjaminhill.fm.chopper
 
 import com.xenomachina.argparser.ArgParser
-import com.xenomachina.argparser.InvalidArgumentException
-import com.xenomachina.argparser.default
 import info.benjaminhill.fm.chopper.Nrsc5Message.Companion.toHDMessages
 import info.benjaminhill.fm.chopper.SongMetadata.Companion.getFirstUnusedCount
 import info.benjaminhill.utils.*
@@ -15,6 +13,11 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.Duration
 import java.time.Instant
+import java.util.*
+import kotlin.collections.ArrayDeque
+import kotlin.concurrent.schedule
+import kotlin.system.exitProcess
+import kotlin.time.Duration.Companion.minutes
 
 
 private val logger = KotlinLogging.logger {}
@@ -24,62 +27,15 @@ private const val BUFFER_SECONDS = 15L
 
 // private val audioWriter = CoroutineScope(Dispatchers.IO)
 
-class ChopperArgs(parser: ArgParser) {
-    val verbose by parser.flagging(
-        "-v", "--verbose",
-        help = "enable verbose mode"
-    )
-    val maxDuration: Duration by parser.storing(
-        "-d", "--duration",
-        help = "max duration (in days, default limitless)"
-    ) { Duration.ofHours(this.toLong()) }
-        .default(Duration.ofDays(999999))
-
-    val output:File by parser.storing(
-        "-o", "--output",
-        help = "output folder location (default: ./output"
-    ) { File(this) }.default(File("./output"))
-        .addValidator {
-            value.mkdirs()
-            if (!value.exists() || !value.canWrite())
-                throw InvalidArgumentException("Unable to write to `${value.canonicalPath}`")
-        }
-
-    val temp: File by parser.storing(
-        "-t", "--temp",
-        help = "temp file location (default: ./temp)"
-    ) { File(this) }.default(File("./temp"))
-        .addValidator {
-            value.mkdirs()
-            if (!value.exists() || !value.canWrite())
-                throw InvalidArgumentException("Unable to write to `${value.canonicalPath}`")
-        }
-
-    val frequency: Double by parser.positional(
-        "FREQUENCY",
-        help = "station frequency (default=98.5)",
-    ) { toDouble() }.default(98.5)
-
-    val channel:Int by parser.positional(
-        "CHANNEL",
-        help = "station channel 0..3 (default=0)"
-    ) { toInt() }.default(0)
-        .addValidator {
-            if (value !in 0..3)
-                throw InvalidArgumentException("channel must be in 0..3")
-        }
-}
 internal lateinit var parsedArgs: ChopperArgs
 
-internal val cachedStates: ArrayDeque<Pair<Instant, Nrsc5Message.State>> =
-    ArrayDeque<Pair<Instant, Nrsc5Message.State>>().also {
+internal val cachedStates: ArrayDeque<TimedEvent<Nrsc5Message.State>> =
+    ArrayDeque<TimedEvent<Nrsc5Message.State>>().also {
         it.add(Instant.now() to Nrsc5Message.State())
     }
-val cachedWav: ArrayDeque<Pair<Instant, ByteArray>> = ArrayDeque()
+val cachedWav: ArrayDeque<TimedEvent<ByteArray>> = ArrayDeque()
 
-
-
-fun main(args:Array<String>) = runBlocking(Dispatchers.IO) {
+fun main(args: Array<String>) = runBlocking(Dispatchers.IO) {
     parsedArgs = ArgParser(args).parseInto(::ChopperArgs)
 
     logger.info { "Launching nrsc5 and tuning in..." }
@@ -100,6 +56,17 @@ fun main(args:Array<String>) = runBlocking(Dispatchers.IO) {
         maxDuration = parsedArgs.maxDuration,
     )
     logger.info { "nrsc5 running" }
+
+    Timer().schedule((parsedArgs.maxDuration + Duration.ofSeconds(30)).toMillis()) {
+        runBlocking {
+            if (processIO.process.isAlive) {
+                logger.warn { "Process timed out, another try at destroying." }
+                processIO.process.destroy()
+                delay(10_000)
+                exitProcess(1)
+            }
+        }
+    }
 
     // Build up state data
     launch {
@@ -122,14 +89,20 @@ fun main(args:Array<String>) = runBlocking(Dispatchers.IO) {
     }
     logger.info { "Sample collector running" }
 
+    val rareLogger = LogInfrequently(
+        logLine = { _ ->
+            "Wav cache size:${cachedWav.size}, ${cachedWav.sumOf { it.state.size } / (1024 * 1024)}mb;  " + "State cache size:${cachedStates.size}, ${
+                cachedStates.groupingBy { it.state.changeType }.eachCount().entries.sortedByDescending { it.value }
+            }"
+        },
+        delay = 2.minutes,
+    )
+
     // Final loop keeps the app from exiting.
     while (processIO.process.isAlive) {
-        val stateChanges =
-            cachedStates.groupingBy { it.second.changeType }.eachCount().entries.sortedByDescending { it.value }
-        logger.info { "Wav cache size:${cachedWav.size}, ${cachedWav.sumOf { it.second.size } / (1024 * 1024)}mb" }
-        logger.info { " State cache size:${cachedStates.size}, $stateChanges" }
+        rareLogger.hit()
         checkIfSongJustEnded()
-        delay(30_000)
+        delay(15_000)
     }
     logger.info { "Process ended." }
 }
@@ -139,16 +112,17 @@ private fun checkIfSongJustEnded() {
         return
     }
     // Optimization
-    Duration.between(cachedStates.first().first, cachedStates.last().first).let { totalDur ->
-        if (totalDur < Duration.ofMinutes(3)) {
-            logger.debug { "Not enough time: ${totalDur.toSeconds()}s (count: ${cachedStates.size})" }
+    Duration.between(cachedStates.first().ts, cachedStates.last().ts).let { totalDur ->
+        if (totalDur <= Duration.ofMinutes(2)) {
+            logger.debug { "Not enough time: ${(totalDur.toSeconds() / 60.0).round(1)}m)" }
             return@checkIfSongJustEnded
         }
     }
     // We don't want a "wrapper" of the station ID bookending a song, we want actual on-the-screen time.
-    val artistTitleDuration: Map<Pair<String, String>, Duration> = sumDurations(cachedStates.map { (ts, state) ->
-        ts to (state.artist to state.title)
-    })
+    val artistTitleDuration: Map<Pair<String, String>, Duration> =
+        maxContiguousDurations(cachedStates.map { (ts, state) ->
+            ts to (state.artist to state.title)
+        })
     val longestStretch = artistTitleDuration.maxByOrNull { it.value }
     if (longestStretch == null) {
         logger.warn { "Longest stretch was null when looking at ${cachedStates.size} states?" }
@@ -156,21 +130,24 @@ private fun checkIfSongJustEnded() {
     }
     val (artistTitle, duration) = longestStretch
     val (artist, title) = artistTitle
-    if (cachedStates.last().second.let { it.artist == artist && it.title == title }) {
+    if (cachedStates.last().state.let { it.artist == artist && it.title == title }) {
         // still working on the longest song
         return
     }
 
-    if (duration <= Duration.ofMinutes(3)) {
-        logger.info { "Not enough on-screen time with $$artist:$title = ${duration.toSeconds()}s" }
+    if (duration < Duration.ofMinutes(2)) {
+        logger.info { "Not enough on-screen time with `$artist`:`$title` = ${(duration.toSeconds() / 60.0).round(1)}m" }
         return
     }
-    // TBD if this needs to be synchronized with the appending
-    synchronized(cachedStates) {
-        saveSong(artist, title)
-    }
+
+    saveSong(artist, title)
+
 }
 
+/**
+ * Peel off a fully completed song.
+ */
+@Synchronized
 private fun saveSong(artist: String, title: String) {
     logger.info { "Finished a song: $artist: $title" }
     val nthTimeSong = getFirstUnusedCount(artist, title)
@@ -194,9 +171,9 @@ private fun saveSong(artist: String, title: String) {
         end = end,
         bitrate = cachedStates.filter { (ts, state) ->
             ts in start..end && state.bitrate > 0.0
-        }.map { it.second.bitrate }.average().round(1),
-        startBuffered = (start - Duration.ofSeconds(BUFFER_SECONDS)).coerceAtLeast(cachedWav.minOf { it.first }),
-        endBuffered = (end + Duration.ofSeconds(BUFFER_SECONDS)).coerceAtMost(cachedWav.maxOf { it.first }),
+        }.map { it.state.bitrate }.average().round(1),
+        startBuffered = (start - Duration.ofSeconds(BUFFER_SECONDS)).coerceAtLeast(cachedWav.minOf { it.ts }),
+        endBuffered = (end + Duration.ofSeconds(BUFFER_SECONDS)).coerceAtMost(cachedWav.maxOf { it.ts }),
     )
 
     songMeta.save()
@@ -212,7 +189,7 @@ private fun saveSong(artist: String, title: String) {
     // which image was on-screen the most during the song?
     val goodImageState: Nrsc5Message.State? = cachedStates.firstOrNull { (instant, state) ->
         instant in (songMeta.start + Duration.ofSeconds(15))..songMeta.end && !state.file.contains("$$")
-    }?.second
+    }?.state
     if (goodImageState != null) {
         val sourceImageFile = File(parsedArgs.temp, goodImageState.file)
         if (sourceImageFile.exists()) {
@@ -226,7 +203,7 @@ private fun saveSong(artist: String, title: String) {
 
     // Remove extra history (both states and WAV), don't run out of memory!
     listOf(cachedStates, cachedWav).forEach { cache ->
-        while (cache.isNotEmpty() && cache.firstOrNull()?.first?.let { it < songMeta.end } == true) {
+        while (cache.isNotEmpty() && cache.firstOrNull()?.ts?.let { it < songMeta.end } == true) {
             cache.removeFirst()
         }
         if (cache.size > 1_000_000) {

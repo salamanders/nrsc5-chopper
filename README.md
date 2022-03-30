@@ -25,3 +25,4 @@ TODO
 - [ ] direct copy from AAC instead of bouncing through the WAV using... uh... magic.
 - [x] Earlier start times (the moment the artist or title isn't right)
 - [x] Real command line args
+- [ ] Commercial break when the song title isn't mentioned

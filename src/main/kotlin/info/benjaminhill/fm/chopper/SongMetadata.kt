@@ -8,11 +8,11 @@ import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
 import mu.KLoggable
 import org.apache.commons.lang3.StringUtils
+import org.slf4j.Logger
 import java.io.File
 import java.io.FileWriter
 import java.io.Serializable
 import java.time.Instant
-
 
 data class SongMetadata(
     val artist: String,

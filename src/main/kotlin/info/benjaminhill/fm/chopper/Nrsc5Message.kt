@@ -36,11 +36,14 @@ internal data class Nrsc5Message(
             "Slogan:",
             "Station location:",
             "Station name:",
+            "Unexpected block type:",
         )
 
         internal fun Flow<Pair<Instant, String>>.toHDMessages(): Flow<Pair<Instant, Nrsc5Message>> =
             transform { (instant, line) ->
-                if (IGNORE_LINES.any { line.contains(it) } || line.endsWith(" Synchronized")) {
+                if (IGNORE_LINES.any { line.contains(it) } ||
+                    line.endsWith(" Synchronized")
+                ) {
                     return@transform
                 }
                 Type.values().firstOrNull { it.matches(line) }?.let { type ->
