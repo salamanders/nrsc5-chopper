@@ -8,10 +8,10 @@ import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
 import mu.KLoggable
 import org.apache.commons.lang3.StringUtils
-import org.slf4j.Logger
 import java.io.File
 import java.io.FileWriter
 import java.io.Serializable
+import java.time.Duration
 import java.time.Instant
 
 data class SongMetadata(
@@ -26,6 +26,7 @@ data class SongMetadata(
     val endBuffered: Instant,
     val bufferSeconds: Long,
     val bitrate: Double,
+    val topImages: List<DurationState<String>>,
 ) : Serializable {
 
     fun imageFile(): File = File(File(parsedArgs.output, escape(artist)), "${escape(title)}.%05d.jpg".format(count))
@@ -49,26 +50,50 @@ data class SongMetadata(
             return File(artistFolder, "${escape(title)}.%05d.json".format(count))
         }
 
-        private val GSON: Gson =
-            GsonBuilder().registerTypeAdapter(Instant::class.java, object : TypeAdapter<Instant>() {
-                override fun write(out: JsonWriter, value: Instant?) {
-                    if (value == null) {
-                        out.nullValue()
-                    } else {
-                        out.value(value.toEpochMilli())
-                    }
+        private val instantTypeAdapter = object : TypeAdapter<Instant>() {
+            override fun write(out: JsonWriter, value: Instant?) {
+                if (value == null) {
+                    out.nullValue()
+                } else {
+                    out.value(value.toEpochMilli())
                 }
+            }
 
-                override fun read(jr: JsonReader): Instant? {
-                    val token = jr.peek()
-                    if (token == JsonToken.NULL) {
-                        jr.nextNull()
-                        return null
-                    }
-                    val instantLong = jr.nextLong()
-                    return Instant.ofEpochMilli(instantLong)
+            override fun read(jr: JsonReader): Instant? {
+                val token = jr.peek()
+                if (token == JsonToken.NULL) {
+                    jr.nextNull()
+                    return null
                 }
-            }).setPrettyPrinting().create()
+                val instantLong = jr.nextLong()
+                return Instant.ofEpochMilli(instantLong)
+            }
+        }
+
+        private val durationTypeAdapter = object : TypeAdapter<Duration>() {
+            override fun write(out: JsonWriter, value: Duration?) {
+                if (value == null) {
+                    out.nullValue()
+                } else {
+                    out.value(value.toMillis())
+                }
+            }
+
+            override fun read(jr: JsonReader): Duration? {
+                val token = jr.peek()
+                if (token == JsonToken.NULL) {
+                    jr.nextNull()
+                    return null
+                }
+                val durationLong = jr.nextLong()
+                return Duration.ofMillis(durationLong)
+            }
+        }
+        private val GSON: Gson =
+            GsonBuilder()
+                .registerTypeAdapter(Instant::class.java, instantTypeAdapter)
+                .registerTypeAdapter(Duration::class.java, durationTypeAdapter)
+                .setPrettyPrinting().create()
 
         private fun escape(value: String) = StringUtils.stripAccents(value).replace(Regex("[^A-Za-z0-9-]+"), "_")
 

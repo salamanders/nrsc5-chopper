@@ -33,7 +33,7 @@ class ChopperArgs(parser: ArgParser) {
                 throw InvalidArgumentException("Unable to write to `${value.canonicalPath}`")
             }
             value.listFiles()?.filterNot { it.isDirectory }
-                ?.filter { it.extension in listOf("jpeg", "jpg")}
+                ?.filter { it.extension in listOf("jpeg", "jpg") }
                 ?.forEach { it.delete() }
         }
 

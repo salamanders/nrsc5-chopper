@@ -16,13 +16,16 @@ using an RTL-SDR Blog V3 USB dongle.
 * Lots of drive space
 
 TODO
-- [x] m4a encoding using ffmpeg from [this installer](https://gist.github.com/chemputer/5fa4319bc0882cad6613f21f051bbcd2)
+
 - [x] Bouncing though a WAV file fills up eventually.  We should write to "-" instead
-- [ ] embed images (but WHICH image?)
-- [ ] Pass in station on the command line (or look around for a good station?)
-- [ ] get the timing right (maybe [silence?](https://ffmpeg.org/ffmpeg-filters.html#silencedetect))
-- [ ] or maybe FFT? https://github.com/mileshenrichs/QuiFFT
-- [ ] direct copy from AAC instead of bouncing through the WAV using... uh... magic.
 - [x] Earlier start times (the moment the artist or title isn't right)
 - [x] Real command line args
-- [ ] Commercial break when the song title isn't mentioned
+- [x] Pass in station on the command line 
+- [x] Pick the best image
+- [ ] m4a encoding using ffmpeg from [this installer](https://gist.github.com/chemputer/5fa4319bc0882cad6613f21f051bbcd2) - holding off until we can trim to song start.
+- [ ] Metadata should have a shorter TTL - if you stop seeing Title, you are in a commercial break.
+- [ ] embed images
+- [ ] Scan all stations 
+- [ ] get the timing right (maybe [silence?](https://ffmpeg.org/ffmpeg-filters.html#silencedetect)) or maybe FFT? https://github.com/mileshenrichs/QuiFFT
+- [ ] direct copy from AAC instead of bouncing through the WAV using... uh... magic.
+- [ ] Max song length

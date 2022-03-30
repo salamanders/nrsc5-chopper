@@ -23,17 +23,19 @@ import kotlin.time.Duration.Companion.minutes
 private val logger = KotlinLogging.logger {}
 
 private const val WAV_HEADER_BYTES = 44L
-private const val BUFFER_SECONDS = 15L
+private const val BUFFER_SECONDS = 20L
 
 // private val audioWriter = CoroutineScope(Dispatchers.IO)
 
 internal lateinit var parsedArgs: ChopperArgs
 
-internal val cachedStates: ArrayDeque<TimedEvent<Nrsc5Message.State>> =
-    ArrayDeque<TimedEvent<Nrsc5Message.State>>().also {
-        it.add(Instant.now() to Nrsc5Message.State())
+internal val cachedStates: ArrayDeque<InstantState<Nrsc5Message.State>> =
+    ArrayDeque<InstantState<Nrsc5Message.State>>().also {
+        it.add(
+            InstantState(Instant.now(), Nrsc5Message.State())
+        )
     }
-val cachedWav: ArrayDeque<TimedEvent<ByteArray>> = ArrayDeque()
+val cachedWav: ArrayDeque<InstantState<ByteArray>> = ArrayDeque()
 
 fun main(args: Array<String>) = runBlocking(Dispatchers.IO) {
     parsedArgs = ArgParser(args).parseInto(::ChopperArgs)
@@ -73,7 +75,9 @@ fun main(args: Array<String>) = runBlocking(Dispatchers.IO) {
         processIO.getErrorFrom.toTimedLines().toHDMessages().collect { (ts, hdMessage) ->
             val (_, currentState) = cachedStates.last()
             if (currentState.getValue(hdMessage.type) != hdMessage.value) {
-                cachedStates.addLast(ts to currentState.updatedCopy(hdMessage.type, hdMessage.value))
+                cachedStates.addLast(
+                    InstantState(ts, currentState.updatedCopy(hdMessage.type, hdMessage.value))
+                )
             }
         }
     }
@@ -84,14 +88,18 @@ fun main(args: Array<String>) = runBlocking(Dispatchers.IO) {
         processIO.getFrom.let { wavDataStream ->
             wavDataStream.skip(WAV_HEADER_BYTES)
             // Each sample is 4 bytes
-            wavDataStream.toTimedSamples(sampleSize = 4 * 1024).collect(cachedWav::add)
+            wavDataStream.toTimedSamples(sampleSize = 4 * 1024).collect {
+                cachedWav.add(InstantState(it.first, it.second))
+            }
         }
     }
     logger.info { "Sample collector running" }
 
     val rareLogger = LogInfrequently(
         logLine = { _ ->
-            "Wav cache size:${cachedWav.size}, ${cachedWav.sumOf { it.state.size } / (1024 * 1024)}mb;  " + "State cache size:${cachedStates.size}, ${
+            "Wav cache size:${cachedWav.size}, ${cachedWav.sumOf { it.state.size } / (1024 * 1024)}mb, " +
+                    "${Duration.between(cachedWav.first().ts, cachedWav.last().ts).toMinutes()}min;  " +
+                    "State cache size:${cachedStates.size}, ${
                 cachedStates.groupingBy { it.state.changeType }.eachCount().entries.sortedByDescending { it.value }
             }"
         },
@@ -119,29 +127,24 @@ private fun checkIfSongJustEnded() {
         }
     }
     // We don't want a "wrapper" of the station ID bookending a song, we want actual on-the-screen time.
-    val artistTitleDuration: Map<Pair<String, String>, Duration> =
-        maxContiguousDurations(cachedStates.map { (ts, state) ->
-            ts to (state.artist to state.title)
-        })
-    val longestStretch = artistTitleDuration.maxByOrNull { it.value }
+    val longestStretch = cachedStates.map {
+        InstantState(it.ts, it.state.artist to it.state.title)
+    }.toDurations(contiguous = true).maxByOrNull { it.duration }
     if (longestStretch == null) {
         logger.warn { "Longest stretch was null when looking at ${cachedStates.size} states?" }
         return
     }
-    val (artistTitle, duration) = longestStretch
+    val (duration, artistTitle) = longestStretch
     val (artist, title) = artistTitle
     if (cachedStates.last().state.let { it.artist == artist && it.title == title }) {
         // still working on the longest song
         return
     }
-
     if (duration < Duration.ofMinutes(2)) {
         logger.info { "Not enough on-screen time with `$artist`:`$title` = ${(duration.toSeconds() / 60.0).round(1)}m" }
         return
     }
-
     saveSong(artist, title)
-
 }
 
 /**
@@ -160,8 +163,8 @@ private fun saveSong(artist: String, title: String) {
         state.title == title
     }
     val (end, _) = cachedStates[indexOfEnd]
-    val songMeta = SongMetadata(
-        artist = artist,
+
+    val songMeta = SongMetadata(artist = artist,
         title = title,
         count = nthTimeSong,
         frequency = parsedArgs.frequency,
@@ -174,9 +177,27 @@ private fun saveSong(artist: String, title: String) {
         }.map { it.state.bitrate }.average().round(1),
         startBuffered = (start - Duration.ofSeconds(BUFFER_SECONDS)).coerceAtLeast(cachedWav.minOf { it.ts }),
         endBuffered = (end + Duration.ofSeconds(BUFFER_SECONDS)).coerceAtMost(cachedWav.maxOf { it.ts }),
-    )
+        // which image was on-screen the most during the song?
+        topImages = cachedStates.filter {
+                it.ts in start..end && it.state.changeType == Nrsc5Message.Type.FILE
+            }.map {
+                InstantState(it.ts, it.state.file)
+            }.toDurations().filter { !it.state.contains("$$") })
 
     songMeta.save()
+    (if (songMeta.topImages.isNotEmpty()) {
+        val mostCommonFileName = songMeta.topImages.maxByOrNull { it.duration }!!.state
+        val sourceImageFile = File(parsedArgs.temp, mostCommonFileName)
+        if (sourceImageFile.exists()) {
+            sourceImageFile
+        } else {
+            logger.warn { "Unable to locate image: `${sourceImageFile.canonicalPath}`" }
+            null
+        }
+    } else {
+        logger.warn { "Unable to find a good image state during the song." }
+        null
+    })?.copyTo(songMeta.imageFile())
 
     songMeta.wavFile().writeBytes(ByteArrayOutputStream().apply {
         cachedWav.forEach { (ts, ba) ->
@@ -186,20 +207,6 @@ private fun saveSong(artist: String, title: String) {
         }
     }.toByteArray())
 
-    // which image was on-screen the most during the song?
-    val goodImageState: Nrsc5Message.State? = cachedStates.firstOrNull { (instant, state) ->
-        instant in (songMeta.start + Duration.ofSeconds(15))..songMeta.end && !state.file.contains("$$")
-    }?.state
-    if (goodImageState != null) {
-        val sourceImageFile = File(parsedArgs.temp, goodImageState.file)
-        if (sourceImageFile.exists()) {
-            sourceImageFile.copyTo(songMeta.imageFile())
-        } else {
-            logger.warn { "Unable to locate image: `${sourceImageFile.canonicalPath}`" }
-        }
-    } else {
-        logger.warn { "Unable to find a good image state during the song." }
-    }
 
     // Remove extra history (both states and WAV), don't run out of memory!
     listOf(cachedStates, cachedWav).forEach { cache ->
@@ -211,6 +218,8 @@ private fun saveSong(artist: String, title: String) {
         }
     }
 }
+
+
 /*
 val destination = File(outputFolder, "$safeTitle.m4a")
 // This may be badly blocking...

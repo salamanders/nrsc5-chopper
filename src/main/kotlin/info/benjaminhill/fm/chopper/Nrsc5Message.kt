@@ -75,7 +75,7 @@ internal data class Nrsc5Message(
         val artist: String = "",
         val file: String = "",
         val bitrate: Long = 0,
-        val changeType:Type = Type.TITLE,
+        val changeType: Type = Type.TITLE,
     ) {
         fun getValue(type: Type): String = when (type) {
             Type.TITLE -> title

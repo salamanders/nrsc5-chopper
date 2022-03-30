@@ -3,37 +3,73 @@ package info.benjaminhill.fm.chopper
 import java.time.Duration
 import java.time.Instant
 
+/**
+ * A timed event is a pair of "stuff (state) that happened at time (ts)"
+ * The idea is to keep a collection (ArrayDeque?) of these to record when things first happened.
+ */
+data class InstantState<T>(
+    val ts: Instant,
+    val state: T,
+)
 
-typealias TimedEvent<T> = Pair<Instant, T>
+data class DurationState<T>(
+    val duration: Duration,
+    val state: T,
+)
 
-val <T> TimedEvent<T>.ts:Instant
-    get() = this.first
+fun <T> List<InstantState<T>>.toDurations(contiguous: Boolean = false) = if (contiguous) {
+    maxContiguousDurations()
+} else {
+    sumDurations()
+}
 
-val <T> TimedEvent<T>.state:T
-    get() = this.second
+
+private fun <T> List<InstantState<T>>.sumDurations(): List<DurationState<T>> =
+    this.asSequence().zipWithNext().map { (is0, is1) ->
+        DurationState(
+            state = is0.state,
+            duration = Duration.between(is0.ts, is1.ts),
+        )
+    }.groupingBy { it.state }
+        .fold(Duration.ZERO) { acc, elt ->
+            acc + elt.duration
+        }.map {
+            DurationState(
+                duration = it.value,
+                state = it.key
+            )
+        }.toList()
+
 
 /**
  * Longest contiguous duration
- * @param states Event stream of a new state taking over.
  */
-fun <T : Any> maxContiguousDurations(states: List<TimedEvent<T>>): Map<T, Duration> {
-    val best = mutableMapOf<T, Duration>()
-    states.distinctBy { it.state }.forEach{
-        best[it.state] = Duration.ZERO
+private fun <T> List<InstantState<T>>.maxContiguousDurations(): List<DurationState<T>> {
+    val maxContiguous = mutableMapOf<T, Duration>()
+    this.distinctBy { it.state }.forEach {
+        maxContiguous[it.state] = Duration.ZERO
     }
-    var currentState:T? = null
-    var currentDuration :Duration = Duration.ZERO
-    states.dropLast(1).zipWithNext().forEach { (event0, event1): Pair<TimedEvent<T>, TimedEvent<T>> ->
+    var currentState: T? = null
+    var currentDuration: Duration = Duration.ZERO
+    this.zipWithNext().forEach { (event0, event1): Pair<InstantState<T>, InstantState<T>> ->
         val (ts0, state0) = event0
         val (ts1, _) = event1
-        if(currentState != state0) {
+        if (currentState != state0) {
             currentState = state0
             currentDuration = Duration.ZERO
         }
         currentDuration += Duration.between(ts0, ts1)
-        if(currentDuration > best[currentState]) {
-            best[currentState!!] = currentDuration
+        if (currentDuration > maxContiguous[currentState]) {
+            maxContiguous[currentState!!] = currentDuration
         }
     }
-    return best
+    return maxContiguous.map {
+        DurationState(
+            duration = it.value,
+            state = it.key
+        )
+    }
 }
+
+
+
