@@ -28,4 +28,4 @@ TODO
 - [ ] Scan all stations 
 - [ ] get the timing right (maybe [silence?](https://ffmpeg.org/ffmpeg-filters.html#silencedetect)) or maybe FFT? https://github.com/mileshenrichs/QuiFFT
 - [ ] direct copy from AAC instead of bouncing through the WAV using... uh... magic.
-- [ ] Max song length
+- [ ] Max song length, maybe from a DB? (like wikipedia?)

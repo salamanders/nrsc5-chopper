@@ -6,7 +6,10 @@ import mu.KLoggable
 import java.io.Serializable
 import java.time.Instant
 
-/** Every update that we might use is captured in timestamped copies of the state */
+/**
+ * Every update that we might use is captured in timestamped copies of the state
+ * Good to capture repeat messages, because the validity of a message (state) will have a TTL
+ */
 internal data class Nrsc5Message(
     val type: Type, val value: String
 ) : Serializable {
@@ -58,11 +61,13 @@ internal data class Nrsc5Message(
     ) {
         TITLE(regexp = """\bTitle: (.+)""".toRegex()),
         ARTIST(regexp = """\bArtist: (.+)""".toRegex()),
+        ALBUM(regexp = """\bAlbum: (.+)""".toRegex()),
+        GENRE(regexp = """\bGenre: (.+)""".toRegex()),
         FILE(
             regexp = """\bLOT file:.+\blot=(\d+).+\bname=(\S+)""".toRegex(),
             template = { result: MatchResult? -> result!!.let { "${it.groupValues[1]}_${it.groupValues[2]}" } }
         ),
-        BITRATE(regexp = """\bAudio bit rate: ([0-9]+)""".toRegex());
+        BITRATE(regexp = """\bAudio bit rate: ([0-9.]+)""".toRegex());
 
         fun matches(line: String) = regexp.containsMatchIn(line)
 
@@ -73,22 +78,28 @@ internal data class Nrsc5Message(
     internal data class State(
         val title: String = "",
         val artist: String = "",
+        val album: String = "",
+        val genre: String = "",
         val file: String = "",
-        val bitrate: Long = 0,
-        val changeType: Type = Type.TITLE,
+        val bitrate: Double = 0.0,
+        val messageType: Type,
     ) {
         fun getValue(type: Type): String = when (type) {
             Type.TITLE -> title
             Type.ARTIST -> artist
+            Type.ALBUM -> album
+            Type.GENRE -> genre
             Type.FILE -> file
             Type.BITRATE -> bitrate.toString()
         }
 
         fun updatedCopy(type: Type, value: String) = when (type) {
-            Type.TITLE -> copy(title = value, changeType = type)
-            Type.ARTIST -> copy(artist = value, changeType = type)
-            Type.FILE -> copy(file = value, changeType = type)
-            Type.BITRATE -> copy(bitrate = value.toLong(), changeType = type)
+            Type.TITLE -> copy(title = value, messageType = type)
+            Type.ARTIST -> copy(artist = value, messageType = type)
+            Type.ALBUM -> copy(album = value, messageType = type)
+            Type.GENRE -> copy(genre = value, messageType = type)
+            Type.FILE -> copy(file = value, messageType = type)
+            Type.BITRATE -> copy(bitrate = value.toDouble(), messageType = type)
         }
     }
 }

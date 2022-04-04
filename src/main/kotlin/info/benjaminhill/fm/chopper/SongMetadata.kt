@@ -1,22 +1,17 @@
 package info.benjaminhill.fm.chopper
 
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.TypeAdapter
-import com.google.gson.stream.JsonReader
-import com.google.gson.stream.JsonToken
-import com.google.gson.stream.JsonWriter
 import mu.KLoggable
 import org.apache.commons.lang3.StringUtils
 import java.io.File
 import java.io.FileWriter
 import java.io.Serializable
-import java.time.Duration
 import java.time.Instant
 
 data class SongMetadata(
     val artist: String,
     val title: String,
+    val album:String,
+    val genre:String,
     val count: Long,
     val start: Instant,
     val end: Instant,
@@ -50,59 +45,14 @@ data class SongMetadata(
             return File(artistFolder, "${escape(title)}.%05d.json".format(count))
         }
 
-        private val instantTypeAdapter = object : TypeAdapter<Instant>() {
-            override fun write(out: JsonWriter, value: Instant?) {
-                if (value == null) {
-                    out.nullValue()
-                } else {
-                    out.value(value.toEpochMilli())
-                }
-            }
-
-            override fun read(jr: JsonReader): Instant? {
-                val token = jr.peek()
-                if (token == JsonToken.NULL) {
-                    jr.nextNull()
-                    return null
-                }
-                val instantLong = jr.nextLong()
-                return Instant.ofEpochMilli(instantLong)
-            }
-        }
-
-        private val durationTypeAdapter = object : TypeAdapter<Duration>() {
-            override fun write(out: JsonWriter, value: Duration?) {
-                if (value == null) {
-                    out.nullValue()
-                } else {
-                    out.value(value.toMillis())
-                }
-            }
-
-            override fun read(jr: JsonReader): Duration? {
-                val token = jr.peek()
-                if (token == JsonToken.NULL) {
-                    jr.nextNull()
-                    return null
-                }
-                val durationLong = jr.nextLong()
-                return Duration.ofMillis(durationLong)
-            }
-        }
-        private val GSON: Gson =
-            GsonBuilder()
-                .registerTypeAdapter(Instant::class.java, instantTypeAdapter)
-                .registerTypeAdapter(Duration::class.java, durationTypeAdapter)
-                .setPrettyPrinting().create()
-
         private fun escape(value: String) = StringUtils.stripAccents(value).replace(Regex("[^A-Za-z0-9-]+"), "_")
 
         /**
-         * Next free song slot
+         * Next free song slot (max 99999)
          */
         fun getFirstUnusedCount(artist: String, title: String): Long = (0L..99999L).firstOrNull { count ->
             !potentialMetaFile(artist, title, count).exists()
-        } ?: 0L.also {
+        } ?: 99999L.also {
             logger.error("Unable to find a slot for `$artist:$title`")
         }
     }
