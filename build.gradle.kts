@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.6.10"
-    kotlin("plugin.serialization") version "1.6.10"
+    kotlin("jvm") version "1.6.20"
+    kotlin("plugin.serialization") version "1.6.20"
     application
 }
 
@@ -16,9 +16,9 @@ repositories {
 
 dependencies {
     implementation("com.github.salamanders:utils:9b2e054e5d")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.20-RC")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.20")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.6.0")
-   implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
     implementation("org.apache.commons:commons-lang3:3.12.0")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
     implementation("com.google.guava:guava:31.1-jre")

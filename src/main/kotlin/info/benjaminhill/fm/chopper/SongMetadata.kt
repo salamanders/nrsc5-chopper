@@ -10,8 +10,8 @@ import java.time.Instant
 data class SongMetadata(
     val artist: String,
     val title: String,
-    val album:String,
-    val genre:String,
+    val album: String,
+    val genre: String,
     val count: Long,
     val start: Instant,
     val end: Instant,
@@ -50,7 +50,7 @@ data class SongMetadata(
         /**
          * Next free song slot (max 99999)
          */
-        fun getFirstUnusedCount(artist: String, title: String): Long = (0L..99999L).firstOrNull { count ->
+        fun nextFreeFileSlot(artist: String, title: String): Long = (0L..99999L).firstOrNull { count ->
             !potentialMetaFile(artist, title, count).exists()
         } ?: 99999L.also {
             logger.error("Unable to find a slot for `$artist:$title`")
