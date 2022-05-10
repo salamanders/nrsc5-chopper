@@ -242,3 +242,5 @@ gradle-app.setting
 /.idea/
 /temp/**
 /output/**
+/spect.png
+/tempfft.txt

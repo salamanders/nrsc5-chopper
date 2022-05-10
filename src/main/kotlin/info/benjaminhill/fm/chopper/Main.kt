@@ -13,8 +13,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.Duration
 import java.time.Instant
-import java.util.*
-import kotlin.collections.ArrayDeque
+import java.util.Timer
 import kotlin.concurrent.schedule
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.minutes
@@ -24,7 +23,7 @@ import kotlin.time.measureTime
 
 private val logger = KotlinLogging.logger {}
 
-private const val WAV_HEADER_BYTES = 44L
+const val WAV_HEADER_BYTES = 44L
 private const val BUFFER_SECONDS = 20L
 
 // private val audioWriter = CoroutineScope(Dispatchers.IO)

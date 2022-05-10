@@ -6,6 +6,12 @@ import com.google.gson.TypeAdapter
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.sync.Semaphore
 import java.time.Duration
 import java.time.Instant
 
@@ -54,3 +60,19 @@ internal val GSON: Gson =
         .registerTypeAdapter(Instant::class.java, instantTypeAdapter)
         .registerTypeAdapter(Duration::class.java, durationTypeAdapter)
         .setPrettyPrinting().create()
+
+
+/**
+ * Parallel map from https://github.com/Kotlin/kotlinx.coroutines/issues/1147#issuecomment-846439876
+ */
+inline fun <T, R> Flow<T>.mapInOrder(concurrencyLevel: Int, crossinline map: suspend (T) -> R): Flow<R> =
+    Semaphore(permits = concurrencyLevel).let { semaphore ->
+        channelFlow {
+            collect {
+                semaphore.acquire()
+                send(async { map(it) })
+            }
+        }
+            .map { it.await() }
+            .onEach { semaphore.release() }
+    }
