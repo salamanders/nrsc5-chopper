@@ -3,6 +3,7 @@ package info.benjaminhill.fm.chopper
 import info.benjaminhill.utils.r
 import java.io.File
 import java.time.Duration
+import javax.imageio.ImageIO
 import kotlin.math.hypot
 
 
@@ -21,6 +22,8 @@ fun main() {
     val primaryDream = allDreamFiles.random().also {
         allDreamFiles.remove(it)
     }
+
+    ImageIO.write(primaryDream.toBufferedImage(), "png", File("primary_spectrogram.png"))
 
     val secondDream = allDreamFiles.first()
 
@@ -48,7 +51,7 @@ fun main() {
         println("Offset $offset, diff: $diff, timeshift: ${(timeShift.toMillis()/1_000.0).r}sec")
     }
 
-    // ImageIO.write(primaryDream.toBufferedImage(), "png", File("spect.png"))
+    //
 
     // find the best location for that small window of the second song
     //(0 until Duration.ofSeconds(60).toSampleCount()).associateBy { offset->

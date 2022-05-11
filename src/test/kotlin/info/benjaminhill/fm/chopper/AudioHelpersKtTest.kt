@@ -1,9 +1,13 @@
 package info.benjaminhill.fm.chopper
 
+import info.benjaminhill.fm.chopper.AudioFile.Companion.hzToPianoKey
+import info.benjaminhill.fm.chopper.AudioFile.Companion.pianoKeyToHz
 import org.junit.jupiter.api.Test
 
 import org.junit.jupiter.api.Assertions.*
 import java.io.File
+import java.time.Duration
+import javax.imageio.ImageIO
 
 internal class AudioHelpersKtTest {
 
@@ -21,14 +25,27 @@ internal class AudioHelpersKtTest {
 
     @Test
     fun oneHundredHzTest() {
-        val audioFile = File("examples/audiocheck.net_sin_1000Hz_-3dBFS_3s.wav")
-        val tsToAmplitudes = waveformToFfts(
-            waveform = audioFile.readWaveform(),
-        )
-        val keysToAmps = tsToAmplitudes.entries.first().value
-        val keyWithMaxAmplitude = keysToAmps.indices.maxByOrNull { keysToAmps[it] }!!
-        assert( keyWithMaxAmplitude in 62..64)
-        val freqWithMaxAmplitude = PIANO_KEYS_TO_FREQ[keyWithMaxAmplitude]!!
+        val audioFile = AudioFile(File("examples/audiocheck.net_sin_1000Hz_-3dBFS_3s.wav"))
+        val keyWithMaxAmplitude =
+            audioFile.frames.first().pianoKeys.mapIndexed { key, amp -> key to amp }.maxBy { it.second }
+
+        assert(keyWithMaxAmplitude.first in 62..64)
+        val freqWithMaxAmplitude = pianoKeyToHz(keyWithMaxAmplitude.first)
         assertEquals(freqWithMaxAmplitude, 1000.0, 100.0)
+
+        ImageIO.write(audioFile.toBufferedImage(), "png", File("oneHundredHzTest.png").also { it.deleteOnExit() })
+    }
+
+    @Test
+    fun multiToneTest() {
+        val audioFile = AudioFile(audioFile = File("examples/multi.wav"), minWindowSize = Duration.ofMillis(100))
+        assertEquals(44100, audioFile.waveform.size)
+
+        val keyWithMaxAmplitude =
+            audioFile.frames.first().pianoKeys.mapIndexed { key, amp -> key to amp }.maxBy { it.second }
+
+        assert(keyWithMaxAmplitude.first in 47..51) { "Failed: ${keyWithMaxAmplitude.first}"}
+        val freqWithMaxAmplitude = pianoKeyToHz(keyWithMaxAmplitude.first)
+        assertEquals(440.0, freqWithMaxAmplitude, 100.0)
     }
 }

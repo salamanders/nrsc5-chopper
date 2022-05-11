@@ -13,6 +13,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.time.Duration
 import java.util.*
+import java.util.stream.Stream
 import javax.sound.sampled.AudioFileFormat
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
@@ -20,6 +21,7 @@ import javax.sound.sampled.AudioSystem
 import kotlin.math.hypot
 import kotlin.math.log2
 import kotlin.math.pow
+import kotlin.streams.asStream
 
 /**
  * Soaks up a file and does FFT magic on it
@@ -43,11 +45,15 @@ class AudioFile(
         windowSampleSize = findNextPowerOf2(durationToSampleCount(minWindowSize))
     }
 
+    /**
+     * @param precalculatedPianoKeys if the final values are already known
+     */
     inner class Frame(
         val startAtSample: Int,
+        precalculatedPianoKeys:DoubleArray? = null,
     ) {
         val ts:Duration = sampleCountToDuration(startAtSample)
-        val fft: Array<Complex> by lazy {
+        private val fft: Array<Complex> by lazy {
             val window = waveform.copyOfRange(
                 startAtSample, startAtSample + windowSampleSize
             )
@@ -63,7 +69,7 @@ class AudioFile(
         /**
          * Converts from the result of an FFT to a more usable map<frequency, amplitude>
          */
-        val frequenciesToAmps: SortedMap<Double, Double> by lazy {
+        private val frequenciesToAmps: SortedMap<Double, Double> by lazy {
             fft.take(fft.size / 2).mapIndexed { idx, complex ->
                     // phase = atan2(complex.imaginary, complex.real)
                     val freq = idx * format.sampleRate.toDouble() / fft.size
@@ -76,12 +82,16 @@ class AudioFile(
          * Array of amplitudes, not normalized (normalization should be over the entire song, if at all)
          */
         val pianoKeys: DoubleArray by lazy {
-            val result = DoubleArray(PIANO_KEYS_TO_FREQ.size + 2)
-            frequenciesToAmps.forEach { (freq, amp) ->
-                val key = hzToPianoKey(freq).coerceIn(result.indices)
-                result[key] += amp
+            if(precalculatedPianoKeys!=null) {
+                precalculatedPianoKeys
+            } else {
+                val result = DoubleArray(PIANO_KEYS_TO_FREQ.size + 2)
+                frequenciesToAmps.forEach { (freq, amp) ->
+                    val key = hzToPianoKey(freq).coerceIn(result.indices)
+                    result[key] += amp
+                }
+                result
             }
-            result
         }
     }
 
@@ -92,7 +102,29 @@ class AudioFile(
         val windowStepSize = (windowSampleSize * (1.0 - overlap)).toInt()
         (0 until waveform.size - windowSampleSize step windowStepSize).map { startSample ->
             Frame(startSample)
-        }.sortedBy {  it.startAtSample }
+        }.sortedBy { it.startAtSample }.also {
+            logger.info { "windowSampleSize: $windowSampleSize, overlap: $overlap, windowStepSize: $windowStepSize generated ${it.size} frames" }
+        }
+    }
+
+    /**
+     * Normalized across all frames (so it requires the whole file to be processed)
+     */
+    private val normalizedFrames: List<Frame> by lazy {
+        var allAmps:Stream<Double> = Stream.of()
+        frames.forEach { frame->
+            allAmps = Stream.concat(allAmps, frame.pianoKeys.asSequence().asStream())
+        }
+        val stats = allAmps.toStats()
+        logger.debug { "Stats: $stats" }
+        frames.map { oldFrame->
+            Frame(
+                startAtSample = oldFrame.startAtSample,
+                precalculatedPianoKeys = oldFrame.pianoKeys.map { oldAmp ->
+                    (oldAmp - stats.min)/(stats.max - stats.min)
+                }.toDoubleArray()
+            )
+        }
     }
 
     private fun getFileAudioInputStream() = when (audioFile.extension.lowercase()) {
@@ -142,7 +174,7 @@ class AudioFile(
         }
     }
 
-    fun durationToSampleCount(duration: Duration) =
+    private fun durationToSampleCount(duration: Duration) =
         ((duration.toNanos() / 1_000_000_000.0) * format.sampleRate.toDouble()).toInt()
 
     private fun sampleCountToDuration(samples: Int): Duration =
@@ -150,9 +182,9 @@ class AudioFile(
 
     internal fun toBufferedImage(): BufferedImage = Timer.log("fftsToImage") {
         val bi1 = BufferedImage(frames.size, frames.first().pianoKeys.size, BufferedImage.TYPE_INT_ARGB)
-        frames.forEachIndexed { x, frame ->
-            frame.pianoKeys.forEachIndexed { yinv, amp ->
-                val y = frame.pianoKeys.size - yinv - 1
+        normalizedFrames.forEachIndexed { x, nframe ->
+           nframe.pianoKeys.forEachIndexed { yinv, amp ->
+                val y = nframe.pianoKeys.size - yinv - 1
                 amp.toFloat().let {
                     bi1.setRGB(x, y, Color(it, it, it).rgb)
                 }
@@ -174,8 +206,8 @@ class AudioFile(
             /* bigEndian = */ false
         )
 
-        private fun pianoKeyToHz(key: Int) = 1.059463.pow(key - 49.0) * 440.0
-        private fun hzToPianoKey(hz: Double) = (12 * log2(hz / 440.0) + 49).toInt()
+        fun pianoKeyToHz(key: Int) = 1.059463.pow(key - 49.0) * 440.0
+        fun hzToPianoKey(hz: Double) = (12 * log2(hz / 440.0) + 49).toInt()
         private val PIANO_KEYS_EXTENDED = (1..108)
         private val PIANO_KEYS_TO_FREQ = HashBiMap.create(PIANO_KEYS_EXTENDED.associateWith { pianoKeyToHz(it) })
     }
