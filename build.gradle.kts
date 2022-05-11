@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.6.20"
-    kotlin("plugin.serialization") version "1.6.20"
+    kotlin("jvm") version "1.7.0-Beta"
+    kotlin("plugin.serialization") version "1.7.0-Beta"
     application
 }
 
@@ -26,9 +26,10 @@ dependencies {
     implementation("com.xenomachina:kotlin-argparser:2.0.7")
     implementation("io.github.microutils:kotlin-logging:2.1.21")
     implementation("org.apache.commons:commons-lang3:3.12.0")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.6.10")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.20")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.0-Beta")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.0-Beta")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.6.1")
+    implementation("com.github.Syncleus:aparapi:8a40dd3b7c")
 
 
     testImplementation(kotlin("test"))

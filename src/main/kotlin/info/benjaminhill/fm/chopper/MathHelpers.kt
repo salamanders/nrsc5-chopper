@@ -1,10 +1,10 @@
 package info.benjaminhill.fm.chopper
 
 import java.util.*
+import java.util.stream.Stream
 import kotlin.math.cos
-import kotlin.math.hypot
 import kotlin.math.log
-import kotlin.streams.asStream
+import kotlin.math.sqrt
 
 
 /**
@@ -42,24 +42,30 @@ fun DoubleArray.toUnitRange(): DoubleArray {
 }
 
 // fast-ish
-fun DoubleArray.hypotSummary(otherArray: DoubleArray): DoubleSummaryStatistics {
+fun DoubleArray.dist(otherArray: DoubleArray): Double {
     require(this.isNotEmpty())
     require(this.size == otherArray.size)
 
-    return this.asSequence().zip(otherArray.asSequence(), ::hypot)
-        .asStream()
-        .collect(::DoubleSummaryStatistics,
-            { obj: DoubleSummaryStatistics, value: Double ->
-                obj.accept(
-                    value
-                )
-            },
-            { obj: DoubleSummaryStatistics, other: DoubleSummaryStatistics ->
-                obj.combine(
-                    other
-                )
-            })
+    return sqrt(
+        this.asSequence().zip(otherArray.asSequence()) { a, b ->
+            (a - b) * (a - b)
+        }.sum()
+    )
 }
+
+fun Stream<Double>.toStats(): DoubleSummaryStatistics =
+    this.collect(
+        ::DoubleSummaryStatistics,
+        { obj: DoubleSummaryStatistics, value: Double ->
+            obj.accept(
+                value
+            )
+        },
+        { obj: DoubleSummaryStatistics, other: DoubleSummaryStatistics ->
+            obj.combine(
+                other
+            )
+        })
 
 private val hannCache: MutableMap<Int, DoubleArray> = mutableMapOf()
 

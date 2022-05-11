@@ -6,15 +6,14 @@ import com.google.gson.TypeAdapter
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.*
 import java.time.Duration
 import java.time.Instant
 
+/** For serializing stuff with GSON */
 private val instantTypeAdapter = object : TypeAdapter<Instant>() {
     override fun write(out: JsonWriter, value: Instant?) {
         if (value == null) {
@@ -35,6 +34,7 @@ private val instantTypeAdapter = object : TypeAdapter<Instant>() {
     }
 }
 
+/** For serializing stuff with GSON */
 private val durationTypeAdapter = object : TypeAdapter<Duration>() {
     override fun write(out: JsonWriter, value: Duration?) {
         if (value == null) {
@@ -61,18 +61,16 @@ internal val GSON: Gson =
         .registerTypeAdapter(Duration::class.java, durationTypeAdapter)
         .setPrettyPrinting().create()
 
-
 /**
- * Parallel map from https://github.com/Kotlin/kotlinx.coroutines/issues/1147#issuecomment-846439876
+ * From https://github.com/Kotlin/kotlinx.coroutines/issues/1147
  */
-inline fun <T, R> Flow<T>.mapInOrder(concurrencyLevel: Int, crossinline map: suspend (T) -> R): Flow<R> =
-    Semaphore(permits = concurrencyLevel).let { semaphore ->
-        channelFlow {
-            collect {
-                semaphore.acquire()
-                send(async { map(it) })
-            }
-        }
-            .map { it.await() }
-            .onEach { semaphore.release() }
-    }
+@OptIn(FlowPreview::class)
+fun <T, R> Flow<T>.concurrentMap(
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    concurrencyLevel: Int = DEFAULT_CONCURRENCY,
+    transform: suspend (T) -> R
+): Flow<R> {
+    return flatMapMerge(concurrencyLevel) { value ->
+        flow { emit(transform(value)) }
+    }.flowOn(dispatcher)
+}
